@@ -222,3 +222,179 @@
   color: var(--bg);
   box-shadow: 0 0 0 3px var(--accent), var(--shadow-lift);
 }
+
+/* ---------- Sudoku ---------- */
+
+.sudoku {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 20px;
+}
+.sudoku.wide {
+  flex-direction: row;
+  gap: 32px;
+}
+.sdk-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  width: var(--grid);
+  height: var(--grid);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--board);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ink) 45%, transparent), var(--shadow-lift);
+}
+.sdk-cell {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--board-line);
+  border-bottom: 1px solid var(--board-line);
+  background: transparent;
+  font-family: var(--display);
+  font-size: calc(var(--grid) / 9 * 0.56);
+  font-weight: 550;
+  color: var(--accent-strong);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.12s;
+}
+.sdk-cell:nth-child(9n) {
+  border-right: 0;
+}
+.sdk-cell:nth-last-child(-n + 9) {
+  border-bottom: 0;
+}
+.sdk-cell.edge-r {
+  border-right: 2px solid color-mix(in oklab, var(--ink) 45%, transparent);
+}
+.sdk-cell.edge-b {
+  border-bottom: 2px solid color-mix(in oklab, var(--ink) 45%, transparent);
+}
+.sdk-cell.given {
+  color: var(--ink);
+  font-weight: 700;
+}
+.sdk-cell.peer {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+.sdk-cell.same {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.sdk-cell.sel {
+  background: color-mix(in oklab, var(--accent) 34%, transparent);
+}
+.sdk-cell.wrong {
+  color: var(--danger);
+}
+.sdk-cell.intro {
+  animation: reveal 0.35s var(--ease) both;
+}
+.sdk-grid.solved .sdk-cell {
+  animation: solved-wave 0.6s var(--ease) both;
+  animation-delay: var(--d);
+}
+@keyframes solved-wave {
+  40% { background: color-mix(in oklab, var(--accent) 40%, transparent); transform: scale(0.92); }
+}
+.sdk-notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 88%;
+  height: 88%;
+  font-family: var(--ui);
+  font-size: calc(var(--grid) / 9 * 0.22);
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1;
+}
+.sdk-notes i {
+  font-style: normal;
+  display: grid;
+  place-items: center;
+}
+
+.sdk-pad {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr) auto auto;
+  gap: 8px;
+  width: var(--grid);
+}
+.sudoku.wide .sdk-pad {
+  grid-template-columns: repeat(3, 64px);
+  width: auto;
+}
+.sdk-key {
+  position: relative;
+  height: 52px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 0.12s, transform 0.08s, opacity 0.2s;
+}
+.sudoku.wide .sdk-key {
+  height: 64px;
+}
+.sdk-key:hover {
+  background: var(--surface-2);
+}
+.sdk-key:active {
+  transform: scale(0.95);
+}
+.sdk-key small {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  font-family: var(--ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.sdk-key.done {
+  opacity: 0.35;
+}
+.sdk-tool {
+  font-family: var(--ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 14px;
+}
+.sudoku.wide .sdk-tool {
+  grid-column: span 3;
+  height: 44px;
+}
+.sdk-tool[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+
+/* ---------- Blocks and Breakout ---------- */
+
+.blocks,
+.breakout {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.breakout-canvas {
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-lift);
+  cursor: none;
+  touch-action: none;
+}
+.blocks-canvas {
+  display: block;
+}

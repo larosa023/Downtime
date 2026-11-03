@@ -22,6 +22,7 @@ import { installSuitSprite } from "./cards/deck";
 import { GAMES, gameById } from "./games";
 import { gameArt } from "./ui/art";
 import { GAME_ICONS, ICONS } from "./ui/icons";
+import { appVersion, checkForUpdate, installUpdate, onUpdateState, updateState, UpdateState } from "./core/updater";
 
 applySettings();
 installSuitSprite();
@@ -37,9 +38,12 @@ app.innerHTML = `
       <a class="nav-item" href="#/" data-route="home">${ICONS.home}<span>Home</span></a>
       <p class="nav-group">Cards</p>
       ${GAMES.filter((g) => g.group === "cards").map(navItem).join("")}
-      <p class="nav-group">Puzzles and arcade</p>
+      <p class="nav-group">Puzzles</p>
+      ${GAMES.filter((g) => g.group === "puzzles").map(navItem).join("")}
+      <p class="nav-group">Arcade</p>
       ${GAMES.filter((g) => g.group === "arcade").map(navItem).join("")}
       <div class="rail-foot">
+        <div class="update-slot" aria-live="polite"></div>
         <a class="nav-item" href="#/stats" data-route="stats">${ICONS.stats}<span>Stats</span></a>
         <a class="nav-item" href="#/settings" data-route="settings">${ICONS.settings}<span>Settings</span></a>
         <div class="theme-dots" role="radiogroup" aria-label="Theme">
@@ -158,8 +162,12 @@ function showHome() {
         <h2>Cards</h2>
         <div class="tiles">${GAMES.filter((g) => g.group === "cards").map(tile).join("")}</div>
       </section>
-      <section aria-label="Puzzles and arcade">
-        <h2>Puzzles and arcade</h2>
+      <section aria-label="Puzzles">
+        <h2>Puzzles</h2>
+        <div class="tiles">${GAMES.filter((g) => g.group === "puzzles").map(tile).join("")}</div>
+      </section>
+      <section aria-label="Arcade">
+        <h2>Arcade</h2>
         <div class="tiles">${GAMES.filter((g) => g.group === "arcade").map(tile).join("")}</div>
       </section>
     </div>`;
@@ -287,7 +295,7 @@ function variantLabel(key: string): { game: string; variant: string } {
   const labels: Record<string, string> = {
     draw1: "Draw 1", draw3: "Draw 3", "1suit": "1 suit", "2suit": "2 suits", "4suit": "4 suits",
     easy: "Easy", medium: "Medium", hard: "Hard", relaxed: "Relaxed", normal: "Normal", fast: "Fast",
-    walls: "walls", wrap: "wrap",
+    walls: "walls", wrap: "wrap", std: "",
   };
   return { game: name, variant: rest.map((r) => labels[r] ?? r).join(", ") };
 }
@@ -368,6 +376,14 @@ function showSettings() {
         <label class="toggle"><input type="checkbox" data-set="sound" ${s.sound ? "checked" : ""}/><span class="switch"></span><span>Sound effects</span></label>
         <label class="toggle"><input type="checkbox" data-set="motion" ${s.motion ? "checked" : ""}/><span class="switch"></span><span>Animations</span></label>
       </section>
+      <section class="setting updates-setting" ${updateState().kind === "unsupported" ? "hidden" : ""}>
+        <h2>Updates</h2>
+        <p class="dim">Downtime <span data-version></span>. It checks for new versions when it starts.</p>
+        <div class="update-row">
+          <button class="btn ghost" data-check>${ICONS.refresh}<span>Check for updates</span></button>
+          <span class="update-msg" aria-live="polite"></span>
+        </div>
+      </section>
       <section class="setting">
         <h2>Data</h2>
         <p class="dim">Stats and games in progress are saved on this computer.</p>
@@ -391,6 +407,16 @@ function showSettings() {
   stage.querySelectorAll<HTMLInputElement>("input[data-set]").forEach((i) =>
     i.addEventListener("change", () => updateSettings({ [i.dataset.set!]: i.checked })),
   );
+  void appVersion().then((v) => {
+    const el = stage.querySelector("[data-version]");
+    if (el) el.textContent = `version ${v}`;
+  });
+  stage.querySelector("[data-check]")?.addEventListener("click", () => {
+    const s = updateState();
+    if (s.kind === "available") void installUpdate();
+    else void checkForUpdate();
+  });
+  renderUpdates();
   const reset = stage.querySelector<HTMLButtonElement>("[data-reset]")!;
   reset.addEventListener("click", () => {
     if (reset.dataset.confirm) {
@@ -403,5 +429,57 @@ function showSettings() {
     }
   });
 }
+
+// ---------------- updates ----------------
+
+function updateLabel(s: UpdateState): string {
+  switch (s.kind) {
+    case "checking":
+      return "Checking…";
+    case "current":
+      return "You're on the latest version.";
+    case "available":
+      return `Version ${s.version} is ready to install.`;
+    case "downloading":
+      return `Downloading ${Math.round(s.progress * 100)}%`;
+    case "installing":
+      return "Installing. Downtime will restart.";
+    case "error":
+      return s.message;
+    default:
+      return "";
+  }
+}
+
+function renderUpdates() {
+  const s = updateState();
+  const slot = document.querySelector<HTMLElement>(".update-slot")!;
+  const busy = s.kind === "downloading" || s.kind === "installing";
+  if (s.kind === "available" || busy) {
+    const v = s.version;
+    const pct = s.kind === "downloading" ? Math.round(s.progress * 100) : s.kind === "installing" ? 100 : 0;
+    slot.innerHTML = `
+      <button class="update-banner" data-install ${busy ? "disabled" : ""} style="--p:${pct}%">
+        <strong>${busy ? (s.kind === "installing" ? "Installing…" : `Downloading ${pct}%`) : "Update available"}</strong>
+        <span>${busy ? `Version ${v}` : `Install version ${v}`}</span>
+      </button>`;
+    slot.querySelector("[data-install]")?.addEventListener("click", () => void installUpdate());
+  } else slot.innerHTML = "";
+
+  const msg = document.querySelector<HTMLElement>(".update-msg");
+  const btn = document.querySelector<HTMLButtonElement>("[data-check]");
+  if (msg) {
+    msg.textContent = updateLabel(s);
+    msg.classList.toggle("error", s.kind === "error");
+  }
+  if (btn) {
+    btn.disabled = s.kind === "checking" || busy;
+    btn.querySelector("span")!.textContent = s.kind === "available" ? `Install ${s.version}` : "Check for updates";
+  }
+}
+
+onUpdateState(renderUpdates);
+setTimeout(() => void checkForUpdate(true), 2500);
+setInterval(() => void checkForUpdate(true), 6 * 60 * 60 * 1000);
 
 route();

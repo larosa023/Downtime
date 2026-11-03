@@ -1,7 +1,8 @@
 name: Build
 
 # Every push to main builds Windows installers you can grab from the run's
-# "Artifacts" section. Pushing a tag like v0.1.0 also publishes a GitHub Release.
+# "Artifacts" section. Publishing a release (tag like v0.2.0) builds again and
+# attaches the files, plus latest.json, which the in-app updater reads.
 on:
   push:
     branches: [main]
@@ -15,6 +16,9 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +39,19 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      # Updates are signed so the app only installs builds made here. Without
+      # the signing key secret the build still works, just without self-update files.
+      - name: Signing setup
+        id: sign
+        shell: bash
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY secret is not set, so this build can't be used for auto-updates."
+            echo "args=--config src-tauri/tauri.no-updater.conf.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and publish release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: tauri-apps/tauri-action@v0
@@ -45,13 +62,16 @@ jobs:
           releaseName: Downtime ${{ github.ref_name }}
           releaseBody: |
             **Downtime-portable.exe** runs without installing.
-            **Downtime_…_x64-setup.exe** installs it with a Start menu shortcut.
+            **Downtime_…_x64-setup.exe** installs it with a Start menu shortcut. The installed version updates itself.
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
+          args: ${{ steps.sign.outputs.args }}
 
       - name: Build
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: npm run tauri build
+        shell: bash
+        run: npm run tauri build -- ${{ steps.sign.outputs.args }}
 
       - name: Collect files
         shell: pwsh

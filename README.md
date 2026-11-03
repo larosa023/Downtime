@@ -5,13 +5,15 @@
 
 ## Games
 
-| Cards | Puzzles and arcade |
-| --- | --- |
-| **Klondike** — draw 1 or draw 3 | **Minesweeper** — easy, medium, hard |
-| **Spider** — 1, 2 or 4 suits | **Snake** — three speeds, walls or wrap-around |
-| **FreeCell** | **2048** |
+| Cards | Puzzles | Arcade |
+| --- | --- | --- |
+| **Klondike** — draw 1 or draw 3 | **Minesweeper** — easy, medium, hard | **Snake** — three speeds, walls or wrap-around |
+| **Spider** — 1, 2 or 4 suits | **Sudoku** — easy, medium, hard | **Blocks** — falling-block puzzle with hold and ghost piece |
+| **FreeCell** | **2048** | **Breakout** — levels that get faster |
+| **TriPeaks** | | |
+| **Pyramid** | | |
 
-Every game has smooth animations, a timer or score, and personal bests. The card games and 2048 have unlimited undo, and games in progress are saved when you leave, so you can pick up where you left off.
+Every game has smooth animations, a timer or score, and personal bests. The card games, Sudoku and 2048 have undo, and games in progress are saved when you leave, so you can pick up where you left off.
 
 **Themes:** Paper, Slate, Felt, Midnight and Ember, plus three card backs. Switch from the dots at the bottom of the sidebar or in Settings.
 
@@ -24,13 +26,22 @@ Grab the latest build from [Releases](../../releases):
 
 Downtime needs Microsoft Edge WebView2, which comes with Windows 10 and 11.
 
+### Updates
+
+The installed version checks for updates when it starts and shows **Update available** in the sidebar. Click it and Downtime downloads, installs and restarts. You can also check from **Settings → Updates**. The portable .exe doesn't update itself; download the new one from Releases.
+
 ## Controls
 
 | | |
 | --- | --- |
 | Cards | Drag to move. Click a card to send it to the best spot. Click the stock to deal. |
 | Minesweeper | Left-click to reveal, right-click (or Ctrl+click) to flag. Click a number to clear around it. |
+| TriPeaks | Click a card one higher or lower than the open card. King and Ace connect. |
+| Pyramid | Click two cards that add up to 13 (J = 11, Q = 12, K = 13). Kings go on their own. |
+| Sudoku | Click a cell, then type 1–9 or use the pad. **N** toggles notes, arrow keys move. |
 | Snake | Arrow keys or WASD. Space to pause. |
+| Blocks | ← → move, ↑ or X rotate, Z rotate back, ↓ soft drop, Space hard drop, C hold, P pause. |
+| Breakout | Mouse or ← →. Click or Space to launch. |
 | 2048 | Arrow keys or WASD, or swipe. |
 | Anywhere | **Ctrl+Z** undo, **F2** new game. |
 
@@ -48,12 +59,16 @@ npm run tauri build   # make the .exe and installers in src-tauri/target/release
 
 ### Releasing
 
-Every push to `main` builds Windows installers on GitHub Actions (look under the run's **Artifacts**). To publish a release, bump the version in `package.json` and `src-tauri/tauri.conf.json`, then push a tag:
+Every push to `main` builds Windows installers on GitHub Actions (look under the run's **Artifacts**). To publish a release:
 
-```sh
-git tag v0.2.0
-git push origin v0.2.0
-```
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`.
+2. On GitHub, go to **Releases → Draft a new release**, type a new tag like `v0.3.0`, and publish.
+
+The workflow builds the app, attaches the files, and uploads `latest.json`, which installed copies read to update themselves.
+
+### Update signing
+
+Updates are signed so the app only installs builds made by this repo's workflow. The workflow reads the private key from a repository secret named `TAURI_SIGNING_PRIVATE_KEY` (**Settings → Secrets and variables → Actions**). The matching public key is in `src-tauri/tauri.conf.json`. Keep a backup of the private key: if it's lost, existing installs can't receive updates until people reinstall. Without the secret, builds still work but can't be used for self-updates.
 
 ## Project layout
 

@@ -48,6 +48,7 @@ export abstract class CardGame implements GameInstance {
         if (!this.locked) this.tap(p, i);
       },
       wasteFan: () => this.wasteFan(),
+      isSelected: (c) => this.isSelected(c),
     });
     root.tabIndex = -1;
   }
@@ -71,6 +72,13 @@ export abstract class CardGame implements GameInstance {
   protected abstract dealFrom(): string;
   protected wasteFan(): number {
     return 1;
+  }
+  protected isSelected(_c: Card): boolean {
+    return false;
+  }
+  /** True when no move is possible, which ends the game as a loss. */
+  protected isStuck(): boolean {
+    return false;
   }
   protected extraState(): unknown {
     return null;
@@ -173,7 +181,21 @@ export abstract class CardGame implements GameInstance {
     this.status();
     this.persist();
     this.checkWin();
+    if (!this.over) this.checkStuck();
     if (!this.over) this.runAutoplay();
+  }
+
+  private checkStuck() {
+    if (!this.isStuck()) return;
+    this.over = true;
+    this.timer.stop();
+    recordLoss(this.statsKey());
+    this.status();
+    setTimeout(() => {
+      if (!this.over) return;
+      sfx.lose();
+      this.ctx.end({ won: false, title: "No moves left", lines: ["Undo to try a different path, or deal again."] });
+    }, 450);
   }
 
   private runAutoplay() {

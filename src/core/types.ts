@@ -44,7 +44,7 @@ export interface GameInstance {
 export interface GameModule {
   id: string;
   name: string;
-  group: "cards" | "arcade";
+  group: "cards" | "puzzles" | "arcade";
   blurb: string;
   /** Small SVG illustration for the home screen. */
   art: string;

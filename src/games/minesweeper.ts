@@ -258,7 +258,7 @@ class Minesweeper implements GameInstance {
 export const minesweeper: GameModule = {
   id: "minesweeper",
   name: "Minesweeper",
-  group: "arcade",
+  group: "puzzles",
   blurb: "Clear the field without touching a mine. Right-click to flag.",
   art: "minesweeper",
   hasUndo: false,

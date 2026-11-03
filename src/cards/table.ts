@@ -38,6 +38,8 @@ export interface TableRules {
   /** Click without dragging. index is -1 for an empty pile. */
   tap(pile: Pile, index: number): void;
   wasteFan?(): number;
+  /** Highlight a card as picked (e.g. the first card of a Pyramid pair). */
+  isSelected?(card: Card): boolean;
 }
 
 interface Pos {
@@ -172,6 +174,7 @@ export class CardTable {
         const pos: Pos = { x: slot.x + offsets[i].x, y: slot.y + offsets[i].y, z: (slot.z ?? 0) + i + 1 };
         this.positions.set(card.id, pos);
         el.classList.toggle("down", !card.up);
+        el.classList.toggle("selected", !!this.rules.isSelected?.(card));
         el.setAttribute("aria-label", card.up ? cardName(card) : "Face-down card");
 
         const prev = this.lastPile.get(card.id);
