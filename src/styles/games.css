@@ -1,0 +1,224 @@
+/* ---------- Minesweeper ---------- */
+
+.mines {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.mines-grid {
+  --gap: max(2px, calc(var(--size) * 0.07));
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--size));
+  gap: var(--gap);
+  padding: calc(var(--gap) * 3);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.cell {
+  width: var(--size);
+  height: var(--size);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--size) * 0.2);
+  background: var(--cell);
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--bg) 35%, transparent);
+  font-family: var(--display);
+  font-weight: 750;
+  font-size: calc(var(--size) * 0.54);
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.12s, transform 0.08s;
+}
+.cell:hover:not(.open) {
+  background: var(--cell-hi);
+}
+.cell:active:not(.open),
+.cell.pressed {
+  transform: scale(0.92);
+}
+.cell svg {
+  width: 62%;
+  height: 62%;
+}
+.cell.open {
+  background: var(--cell-open);
+  box-shadow: none;
+  cursor: default;
+  animation: reveal 0.28s var(--ease) both;
+}
+.cell.open[data-n]:not([data-n="0"]) {
+  cursor: pointer;
+}
+@keyframes reveal {
+  from { transform: scale(0.6); opacity: 0.2; }
+}
+.cell[data-n="1"] { color: var(--n1); }
+.cell[data-n="2"] { color: var(--n2); }
+.cell[data-n="3"] { color: var(--n3); }
+.cell[data-n="4"] { color: var(--n4); }
+.cell[data-n="5"] { color: var(--n5); }
+.cell[data-n="6"] { color: var(--n6); }
+.cell[data-n="7"] { color: var(--n7); }
+.cell[data-n="8"] { color: var(--n8); }
+.cell.flagged {
+  color: var(--danger);
+  animation: plant 0.22s var(--ease);
+}
+@keyframes plant {
+  from { transform: scale(0.7); }
+}
+.cell.mine {
+  background: color-mix(in oklab, var(--danger) 22%, var(--cell-open));
+  color: var(--ink);
+  animation: reveal 0.3s var(--ease) both;
+}
+.cell.mine.hit {
+  background: var(--danger);
+  color: var(--bg);
+}
+.cell.wrong {
+  position: relative;
+  opacity: 0.6;
+}
+.cell.wrong::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  background: linear-gradient(45deg, transparent 45%, var(--ink) 45% 55%, transparent 55%);
+}
+
+/* ---------- Snake ---------- */
+
+.snake {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.snake-canvas {
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-lift);
+  touch-action: none;
+}
+.snake-overlay {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s, transform 0.3s var(--ease);
+}
+.snake-overlay.show {
+  opacity: 1;
+  transform: none;
+}
+.snake-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.snake-sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+/* ---------- 2048 ---------- */
+
+.g2048 {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.g2048-board {
+  --gap: calc(var(--board) * 0.028);
+  --tile: calc((var(--board) - var(--gap) * 5) / 4);
+  position: relative;
+  width: var(--board);
+  height: var(--board);
+  padding: var(--gap);
+  display: grid;
+  grid-template-columns: repeat(4, var(--tile));
+  gap: var(--gap);
+  border-radius: calc(var(--board) * 0.035);
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+  touch-action: none;
+}
+.g2048-bg {
+  border-radius: calc(var(--tile) * 0.12);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+}
+.g2048-layer {
+  position: absolute;
+  inset: var(--gap);
+}
+.g2048-tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: calc(var(--tile) * 0.12);
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-weight: 750;
+  font-size: calc(var(--tile) * 0.4);
+  letter-spacing: -0.03em;
+  transform: translate(calc(var(--c) * (var(--tile) + var(--gap))), calc(var(--r) * (var(--tile) + var(--gap))));
+  transition: transform 0.11s ease-in-out;
+  --t: 15%;
+  background: color-mix(in oklab, var(--accent) var(--t), var(--surface));
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.g2048-tile.small {
+  font-size: calc(var(--tile) * 0.3);
+}
+.g2048-tile.spawn {
+  animation: tile-in 0.2s var(--ease) 0.06s both;
+}
+.g2048-tile.pop {
+  animation: tile-pop 0.2s var(--ease);
+}
+@keyframes tile-in {
+  from { scale: 0.2; opacity: 0; }
+}
+@keyframes tile-pop {
+  50% { scale: 1.14; }
+}
+.g2048-tile[data-v="2"] { --t: 12%; }
+.g2048-tile[data-v="4"] { --t: 24%; }
+.g2048-tile[data-v="8"] { --t: 40%; }
+.g2048-tile[data-v="16"] { --t: 56%; }
+.g2048-tile[data-v="32"] { --t: 72%; }
+.g2048-tile[data-v="64"] { --t: 88%; }
+.g2048-tile[data-v="8"],
+.g2048-tile[data-v="16"],
+.g2048-tile[data-v="32"],
+.g2048-tile[data-v="64"] {
+  color: var(--accent-ink);
+}
+.g2048-tile[data-v="128"],
+.g2048-tile[data-v="256"],
+.g2048-tile[data-v="512"] {
+  background: color-mix(in oklab, var(--danger) 65%, var(--accent));
+  color: #fff;
+}
+.g2048-tile[data-v="512"] {
+  background: var(--danger);
+}
+.g2048-tile[data-v="1024"],
+.g2048-tile[data-v="2048"],
+.g2048-tile[data-v="4096"] {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: 0 0 0 3px var(--accent), var(--shadow-lift);
+}

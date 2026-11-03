@@ -1,0 +1,229 @@
+.table {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.slot,
+.card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--cw);
+  height: var(--ch);
+  border-radius: var(--card-radius);
+}
+
+.slot {
+  box-shadow: inset 0 0 0 1.5px var(--slot);
+  background: color-mix(in oklab, var(--slot) 25%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--slot);
+  cursor: pointer;
+}
+.slot-ghost {
+  box-shadow: none;
+  background: none;
+}
+.slot-mark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.slot-tableau,
+.slot-foundation,
+.slot-cell {
+  cursor: default;
+}
+.slot-icon {
+  width: 40%;
+  height: 40%;
+}
+.slot-suit {
+  width: 38%;
+  height: 38%;
+  fill: currentColor;
+}
+.slot-letter {
+  font-family: var(--display);
+  font-size: calc(var(--cw) * 0.36);
+  font-weight: 700;
+}
+.slot.drop-target {
+  box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* ---------- Card ---------- */
+
+.card {
+  perspective: 900px;
+  transition: transform 0.36s var(--ease);
+  will-change: transform;
+  cursor: grab;
+}
+.instant .card,
+.card.dragging {
+  transition: none;
+}
+.card.dragging {
+  cursor: grabbing;
+}
+.card.dragging .card-inner {
+  box-shadow: var(--shadow-lift);
+  transform: scale(1.03);
+}
+
+.card-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-style: preserve-3d;
+  transition: transform 0.34s var(--ease), box-shadow 0.2s;
+  box-shadow: var(--shadow);
+}
+.card.down .card-inner {
+  transform: rotateY(180deg);
+}
+.card.down.dragging .card-inner {
+  transform: rotateY(180deg) scale(1.03);
+}
+
+.card-face,
+.card-back {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-face {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--card-edge);
+  color: var(--card-ink);
+  overflow: hidden;
+}
+.card-face.red {
+  color: var(--card-red);
+}
+.card-face svg {
+  fill: currentColor;
+}
+
+.idx {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: calc(var(--cw) * 0.24);
+  line-height: 1;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: calc(var(--cw) * 0.2);
+  letter-spacing: -0.04em;
+}
+.idx svg {
+  width: calc(var(--cw) * 0.15);
+  height: calc(var(--cw) * 0.15);
+  margin-top: calc(var(--cw) * 0.025);
+}
+.idx.tl {
+  top: calc(var(--cw) * 0.06);
+  left: calc(var(--cw) * 0.045);
+}
+.idx.br {
+  bottom: calc(var(--cw) * 0.06);
+  right: calc(var(--cw) * 0.045);
+  transform: rotate(180deg);
+}
+
+.pip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--cw) * 0.4);
+  height: calc(var(--cw) * 0.4);
+  transform: translate(-50%, -50%);
+}
+.pip-ace {
+  width: calc(var(--cw) * 0.52);
+  height: calc(var(--cw) * 0.52);
+}
+
+.court {
+  position: absolute;
+  inset: calc(var(--cw) * 0.42) 0 calc(var(--cw) * 0.36);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cw) * 0.02);
+}
+.court-letter {
+  font-family: var(--display);
+  font-size: calc(var(--cw) * 0.42);
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.court-suit {
+  width: calc(var(--cw) * 0.18);
+  height: calc(var(--cw) * 0.18);
+}
+
+/* Card backs */
+.card-back {
+  transform: rotateY(180deg);
+  background-color: var(--back-1);
+  box-shadow: inset 0 0 0 calc(var(--cw) * 0.045) var(--card), inset 0 0 0 calc(var(--cw) * 0.055) var(--card-edge);
+}
+[data-back="weave"] .card-back {
+  background-image:
+    repeating-linear-gradient(45deg, var(--back-2) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(-45deg, var(--back-2) 0 2px, transparent 2px 9px);
+}
+[data-back="dots"] .card-back {
+  background-image: radial-gradient(circle, var(--back-2) 22%, transparent 25%);
+  background-size: calc(var(--cw) * 0.16) calc(var(--cw) * 0.16);
+  background-position: center;
+}
+[data-back="plain"] .card-back {
+  background-image: radial-gradient(circle at 50% 50%, var(--back-2) 0 calc(var(--cw) * 0.12), transparent calc(var(--cw) * 0.125));
+}
+
+/* States */
+.card.drop-target .card-inner {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in oklab, var(--accent) 30%, transparent), var(--shadow);
+}
+
+.card.nudge .card-inner {
+  animation: nudge 0.32s;
+}
+@keyframes nudge {
+  20% { transform: translateX(-4px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+.card.hint .card-inner {
+  animation: hint 1.2s var(--ease);
+}
+@keyframes hint {
+  30%, 60% { box-shadow: 0 0 0 3px var(--accent), var(--shadow-lift); }
+}
+
+.card.bounce .card-inner {
+  animation: bounce 0.7s var(--ease);
+}
+@keyframes bounce {
+  35% { transform: translateY(-22%) rotate(-4deg); }
+  70% { transform: translateY(3%) rotate(1deg); }
+}
+
+/* Cards deep in a stack don't cast their own shadow. */
+.card.buried .card-inner {
+  box-shadow: none;
+}

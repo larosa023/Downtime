@@ -1,0 +1,32 @@
+{
+  "name": "downtime",
+  "version": "0.1.0",
+  "description": "Classic desk games, done cleanly.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "tauri": "tauri"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/larosa023/downtime.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/larosa023/downtime/issues"
+  },
+  "homepage": "https://github.com/larosa023/downtime#readme",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0"
+  },
+  "private": true,
+  "type": "module"
+}

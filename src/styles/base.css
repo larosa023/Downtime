@@ -1,0 +1,314 @@
+/* ---------- Theme tokens ---------- */
+
+:root {
+  --display: "Bricolage Grotesque Variable", "Segoe UI", system-ui, sans-serif;
+  --ui: "Figtree Variable", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --card-radius: calc(var(--cw, 80px) * 0.075);
+}
+
+/* Paper: daylight, cool grey-blue, crisp */
+[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #e4e9ee;
+  --rail: #dbe2e8;
+  --surface: #f6f8fa;
+  --surface-2: #edf1f4;
+  --ink: #1c2733;
+  --muted: #5d6a77;
+  --line: #c6d0d9;
+  --accent: #2e6f8e;
+  --accent-strong: #1f5470;
+  --accent-ink: #ffffff;
+  --accent-soft: #d2e4ec;
+  --danger: #d2453a;
+  --table: #d3dde5;
+  --table-2: #c7d3dd;
+  --slot: rgba(28, 39, 51, 0.16);
+  --board: #f3f6f8;
+  --board-line: #cfd8e0;
+  --card: #fdfeff;
+  --card-edge: rgba(28, 39, 51, 0.14);
+  --card-ink: #1c2733;
+  --card-red: #cf3f34;
+  --back-1: #2e6f8e;
+  --back-2: #3f84a5;
+  --shadow: 0 1px 2px rgba(20, 35, 50, 0.14), 0 2px 6px rgba(20, 35, 50, 0.08);
+  --shadow-lift: 0 10px 28px rgba(20, 35, 50, 0.24);
+  --cell: #cad5de;
+  --cell-hi: #d8e1e8;
+  --cell-open: #f3f6f8;
+  --n1: #2e6f8e; --n2: #3a8a5b; --n3: #cf3f34; --n4: #4b4ba0; --n5: #9a3f2a; --n6: #2c8a8a; --n7: #1c2733; --n8: #6b7784;
+}
+
+/* Slate: a calm dark mode */
+[data-theme="slate"] {
+  color-scheme: dark;
+  --bg: #151a20;
+  --rail: #11151a;
+  --surface: #1e252d;
+  --surface-2: #252d37;
+  --ink: #e6ebf0;
+  --muted: #8b97a4;
+  --line: #2f3843;
+  --accent: #6fb3d2;
+  --accent-strong: #93c8e0;
+  --accent-ink: #0f1a22;
+  --accent-soft: #243845;
+  --danger: #f07a6e;
+  --table: #1b2128;
+  --table-2: #171c22;
+  --slot: rgba(230, 235, 240, 0.12);
+  --board: #1b2128;
+  --board-line: #2b343e;
+  --card: #e9edf1;
+  --card-edge: rgba(0, 0, 0, 0.4);
+  --card-ink: #1a222b;
+  --card-red: #c8463b;
+  --back-1: #35607a;
+  --back-2: #44789a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 14px 30px rgba(0, 0, 0, 0.55);
+  --cell: #2c353f;
+  --cell-hi: #36414c;
+  --cell-open: #1b2128;
+  --n1: #6fb3d2; --n2: #77c79a; --n3: #f07a6e; --n4: #a9a3f0; --n5: #e3a66a; --n6: #6fd0cf; --n7: #e6ebf0; --n8: #8b97a4;
+}
+
+/* Felt: the card-room classic, with brass */
+[data-theme="felt"] {
+  color-scheme: dark;
+  --bg: #0f3426;
+  --rail: #0c2b1f;
+  --surface: #164331;
+  --surface-2: #1b4f3a;
+  --ink: #eef3ec;
+  --muted: #a6bfb1;
+  --line: #2a5d47;
+  --accent: #e8c565;
+  --accent-strong: #f3d889;
+  --accent-ink: #2a2105;
+  --accent-soft: #3c5a3a;
+  --danger: #ef7a62;
+  --table: #1d5d43;
+  --table-2: #154a35;
+  --slot: rgba(238, 243, 236, 0.18);
+  --board: #164a35;
+  --board-line: #24614a;
+  --card: #f7f4ea;
+  --card-edge: rgba(0, 0, 0, 0.3);
+  --card-ink: #1f2522;
+  --card-red: #c23b2f;
+  --back-1: #8c2f2a;
+  --back-2: #a33d36;
+  --shadow: 0 1px 2px rgba(0, 20, 10, 0.45), 0 3px 8px rgba(0, 20, 10, 0.25);
+  --shadow-lift: 0 14px 30px rgba(0, 20, 10, 0.5);
+  --cell: #2a6a50;
+  --cell-hi: #337a5d;
+  --cell-open: #164a35;
+  --n1: #9fd3f0; --n2: #a8e6a1; --n3: #ffa08a; --n4: #d6c2ff; --n5: #f3d889; --n6: #8ee8de; --n7: #eef3ec; --n8: #a6bfb1;
+}
+
+/* Midnight: deep indigo with violet and mint */
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --bg: #12102a;
+  --rail: #0e0c22;
+  --surface: #1c1838;
+  --surface-2: #241f45;
+  --ink: #ecebff;
+  --muted: #9a96c4;
+  --line: #2f2a56;
+  --accent: #a68cff;
+  --accent-strong: #c2b2ff;
+  --accent-ink: #160f33;
+  --accent-soft: #2e2760;
+  --danger: #ff7aa2;
+  --table: #1a1636;
+  --table-2: #14112c;
+  --slot: rgba(166, 140, 255, 0.22);
+  --board: #19153a;
+  --board-line: #2c2659;
+  --card: #f2f0ff;
+  --card-edge: rgba(0, 0, 0, 0.4);
+  --card-ink: #1b1735;
+  --card-red: #d63c6b;
+  --back-1: #5a43c9;
+  --back-2: #2fbfa8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(10, 0, 40, 0.4);
+  --shadow-lift: 0 14px 34px rgba(10, 0, 40, 0.65);
+  --cell: #2c2659;
+  --cell-hi: #383170;
+  --cell-open: #19153a;
+  --n1: #5ee6d0; --n2: #a68cff; --n3: #ff7aa2; --n4: #ffd27a; --n5: #7ab8ff; --n6: #ff9e6b; --n7: #ecebff; --n8: #9a96c4;
+}
+
+/* Ember: warm, low light, for evenings */
+[data-theme="ember"] {
+  color-scheme: dark;
+  --bg: #231714;
+  --rail: #1d1310;
+  --surface: #2f201b;
+  --surface-2: #3a2821;
+  --ink: #f5e6d8;
+  --muted: #bc9f8b;
+  --line: #4a3329;
+  --accent: #f29a4a;
+  --accent-strong: #ffb36f;
+  --accent-ink: #2a1505;
+  --accent-soft: #4a3020;
+  --danger: #ff6b5b;
+  --table: #2f201b;
+  --table-2: #261a16;
+  --slot: rgba(245, 230, 216, 0.14);
+  --board: #2b1d18;
+  --board-line: #45302a;
+  --card: #fbf1e6;
+  --card-edge: rgba(0, 0, 0, 0.35);
+  --card-ink: #2a1d18;
+  --card-red: #c4402e;
+  --back-1: #b5552a;
+  --back-2: #d2703a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 14px 30px rgba(0, 0, 0, 0.55);
+  --cell: #46302a;
+  --cell-hi: #553b33;
+  --cell-open: #2b1d18;
+  --n1: #f29a4a; --n2: #9fd88a; --n3: #ff6b5b; --n4: #c7a8ff; --n5: #ffd27a; --n6: #7ed6cf; --n7: #f5e6d8; --n8: #bc9f8b;
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#app {
+  height: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dim {
+  color: var(--muted);
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s, opacity 0.15s;
+}
+.btn:hover {
+  background: var(--accent-strong);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.btn.ghost:hover {
+  background: var(--surface-2);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+.btn.ghost:disabled:hover {
+  background: transparent;
+}
+.btn.danger {
+  background: transparent;
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.btn.danger:hover {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+}
+
+.no-motion *,
+.no-motion *::before,
+.no-motion *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
