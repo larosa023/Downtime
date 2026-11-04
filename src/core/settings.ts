@@ -8,7 +8,7 @@ export interface Settings {
   cardBack: CardBack;
   sound: boolean;
   motion: boolean;
-  /** Per-game option choices, e.g. { klondike: { draw: "3" } } */
+  /** Per-game option choices, e.g. { spider: { suits: "2" } } */
   options: Record<string, Record<string, string>>;
 }
 

@@ -710,3 +710,14 @@ table.stats {
 .a-well { fill: var(--board); }
 .a-paddle { fill: var(--accent); }
 .a-trail { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 4; fill: none; }
+.a-mj { fill: var(--card); stroke: var(--card-edge); }
+.a-mj-side { fill: color-mix(in oklab, var(--card) 60%, #5a4a30); }
+.a-mj-n { font: 750 15px var(--display); text-anchor: middle; }
+.a-mj-d { fill: #2e6f9e; } .a-mj-s { fill: #2f8a52; } .a-mj-r { fill: #c8463b; }
+.a-ng-on { fill: var(--ink); }
+.a-ng-off { fill: var(--board); }
+.a-ng-clue { font: 650 9px var(--display); fill: var(--muted); }
+.a-c4 { fill: var(--accent); }
+.a-c4-h { fill: var(--table-2); }
+.a-c4-1 { fill: var(--danger); }
+.a-c4-2 { fill: #f2c14e; }

@@ -7,13 +7,14 @@
 
 | Cards | Puzzles | Arcade |
 | --- | --- | --- |
-| **Klondike** — draw 1 or draw 3 | **Minesweeper** — easy, medium, hard | **Snake** — three speeds, walls or wrap-around |
-| **Spider** — 1, 2 or 4 suits | **Sudoku** — easy, medium, hard | **Blocks** — falling-block puzzle with hold and ghost piece |
-| **FreeCell** | **2048** | **Breakout** — levels that get faster |
-| **TriPeaks** | | |
-| **Pyramid** | | |
+| **Spider** — 1, 2 or 4 suits | **Mahjong** — always solvable | **Snake** — three speeds, walls or wrap-around |
+| **FreeCell** | **Minesweeper** — easy, medium, hard | **Blocks** — falling-block puzzle with hold and ghost piece |
+| **TriPeaks** | **Sudoku** — easy, medium, hard | **Breakout** — levels that get faster |
+| **Pyramid** | **Nonograms** — 5×5, 10×10, 15×15 | **Connect Four** — against the computer |
+| **Golf** | **2048** | |
+| | **Memory** — 8, 12 or 18 pairs | |
 
-Every game has smooth animations, a timer or score, and personal bests. The card games, Sudoku and 2048 have undo, and games in progress are saved when you leave, so you can pick up where you left off.
+Every game has smooth animations, a timer or score, and personal bests. The card games, Mahjong, Sudoku, Nonograms and 2048 have undo, and games in progress are saved when you leave, so you can pick up where you left off.
 
 **Themes:** Paper, Slate, Felt, Midnight and Ember, plus three card backs. Switch from the dots at the bottom of the sidebar or in Settings.
 
@@ -36,6 +37,11 @@ The installed version checks for updates when it starts and shows **Update avail
 | --- | --- |
 | Cards | Drag to move. Click a card to send it to the best spot. Click the stock to deal. |
 | Minesweeper | Left-click to reveal, right-click (or Ctrl+click) to flag. Click a number to clear around it. |
+| Golf | Click a column's bottom card if it's one higher or lower than the open card. |
+| Mahjong | Click two matching tiles that are free (nothing on top, and open on the left or right). **H** shows a hint. |
+| Nonograms | Click or drag to fill, right-click or drag to mark X. Numbers turn grey when a line is right. |
+| Memory | Click two cards to flip them. Matches stay face up. |
+| Connect Four | Click a column or press 1–7. You and the computer take turns going first. |
 | TriPeaks | Click a card one higher or lower than the open card. King and Ace connect. |
 | Pyramid | Click two cards that add up to 13 (J = 11, Q = 12, K = 13). Kings go on their own. |
 | Sudoku | Click a cell, then type 1–9 or use the pad. **N** toggles notes, arrow keys move. |

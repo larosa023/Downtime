@@ -14,12 +14,6 @@ const back = (x: number, y: number, r = 0) => `
   </g>`;
 
 const ART: Record<string, string> = {
-  klondike: `
-    ${back(18, 18)}${card(64, 18, 0, false, "")}
-    ${[0, 1, 2, 3].map((i) => `<rect class="a-slot" x="${118 + i * 30}" y="18" width="26" height="36" rx="4"/>`).join("")}
-    ${[0, 1, 2].map((i) => back(30 + i * 52, 80 + i * 0)).join("")}
-    ${card(30, 100, 0, true, "7")}${back(82, 92)}${card(82, 112, 0, false, "9")}${card(134, 88, 0, true, "Q")}${card(134, 108, 0, false, "J")}
-    ${card(186, 84, 0, false, "K")}`,
   spider: `
     ${Array.from({ length: 6 }, (_, i) =>
       [0, 1, 2].map((k) => back(14 + i * 38, 14 + k * 10)).join("") +
@@ -130,6 +124,63 @@ const ART: Record<string, string> = {
         if (!(r === 3 && (c === 2 || c === 3)) && !(r === 2 && c === 3))
           out += `<rect x="${22 + c * 27}" y="${14 + r * 13}" width="24" height="10" rx="3" fill="${colors[r]}"/>`;
     return out + `<circle class="a-ink-f" cx="118" cy="96" r="6"/><rect class="a-paddle" x="128" y="122" width="54" height="8" rx="4"/><path class="a-trail" d="M118 96 L150 122"/>`;
+  })(),
+  golf: (() => {
+    let out = "";
+    const labels = ["5", "9", "J", "3", "7", "Q", "2"];
+    for (let c = 0; c < 7; c++)
+      for (let k = 0; k < 3; k++)
+        out += `<g transform="translate(${14 + c * 33} ${8 + k * 14}) scale(0.8)">${card(0, 0, 0, (c + k) % 2 === 0, k === 2 ? labels[c] : ["A", "4", "8", "K", "6", "10", "3"][(c + k) % 7])}</g>`;
+    return out + back(84, 88) + card(130, 88, 0, false, "8");
+  })(),
+  mahjong: (() => {
+    const tile = (x: number, y: number, z: number, n: string, cls: string) =>
+      `<g transform="translate(${x - z * 4} ${y - z * 4})"><rect class="a-mj-side" x="3" y="3" width="26" height="34" rx="4"/><rect class="a-mj" width="26" height="34" rx="4"/><text class="a-mj-n ${cls}" x="13" y="23">${n}</text></g>`;
+    let out = "";
+    const suits = ["a-mj-d", "a-mj-s", "a-mj-r"];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 7; c++) out += tile(28 + c * 28, 18 + r * 36, 0, String(((c * 3 + r) % 9) + 1), suits[(c + r) % 3]);
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) out += tile(42 + c * 28, 36 + r * 36, 1, String(((c + r * 2) % 9) + 1), suits[(c + r + 1) % 3]);
+    out += tile(98, 54, 2, "7", "a-mj-r");
+    return out;
+  })(),
+  nonogram: (() => {
+    const pic = ["00111100", "01111110", "11011011", "11111111", "01100110", "00111100"];
+    let out = "";
+    pic.forEach((row, r) =>
+      [...row].forEach((v, c) => {
+        out += `<rect class="${v === "1" ? "a-ng-on" : "a-ng-off"}" x="${90 + c * 15}" y="${30 + r * 15}" width="14" height="14" rx="1.5"/>`;
+      }),
+    );
+    const rc = ["4", "6", "2 2 2", "8", "2 2", "4"];
+    rc.forEach((t, r) => (out += `<text class="a-ng-clue" x="84" y="${41 + r * 15}" text-anchor="end">${t}</text>`));
+    ["1", "3", "2 2", "5", "5", "2 2", "3", "1"].forEach((t, c) => (out += `<text class="a-ng-clue" x="${97 + c * 15}" y="24" text-anchor="middle">${t}</text>`));
+    return out;
+  })(),
+  connect4: (() => {
+    const grid = ["0000000", "0000000", "0002000", "0021100", "0212120", "1121210"];
+    let out = `<rect class="a-c4" x="58" y="10" width="136" height="118" rx="10"/>`;
+    grid.forEach((row, r) =>
+      [...row].forEach((v, c) => {
+        out += `<circle class="${v === "1" ? "a-c4-1" : v === "2" ? "a-c4-2" : "a-c4-h"}" cx="${72 + c * 18}" cy="${25 + r * 18}" r="7"/>`;
+      }),
+    );
+    return out;
+  })(),
+  memory: (() => {
+    let out = "";
+    const up: Record<number, string> = {
+      1: `<circle cx="17" cy="22" r="9" fill="#d2453a"/>`,
+      6: `<circle cx="17" cy="22" r="9" fill="#d2453a"/>`,
+      3: `<path d="M17 12 27 31H7z" fill="#2e6f9e"/>`,
+    };
+    for (let i = 0; i < 10; i++) {
+      const x = 32 + (i % 5) * 40;
+      const y = 14 + Math.floor(i / 5) * 58;
+      out += up[i]
+        ? `<g transform="translate(${x} ${y})"><rect class="a-card" width="34" height="46" rx="5"/>${up[i]}</g>`
+        : `<g transform="translate(${x} ${y})"><rect class="a-back" width="34" height="46" rx="5"/><rect class="a-back-line" x="4" y="4" width="26" height="38" rx="3"/></g>`;
+    }
+    return out;
   })(),
 };
 

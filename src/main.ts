@@ -303,7 +303,7 @@ function variantLabel(key: string): { game: string; variant: string } {
 function showStats() {
   document.title = "Stats — Downtime";
   const entries = Object.entries(allStats())
-    .filter(([, s]) => s.played > 0)
+    .filter(([key, s]) => s.played > 0 && gameById(key.split(":")[0]))
     .sort(([a], [b]) => GAMES.findIndex((g) => a.startsWith(g.id)) - GAMES.findIndex((g) => b.startsWith(g.id)) || a.localeCompare(b));
   const rows = entries
     .map(([key, s]) => {

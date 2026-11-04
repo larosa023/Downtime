@@ -398,3 +398,382 @@
 .blocks-canvas {
   display: block;
 }
+
+/* ---------- Mahjong ---------- */
+
+.mahjong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.mj-board {
+  --th: calc(var(--tw) * 1.32);
+  --depth: calc(var(--tw) * 0.1);
+  --tile: var(--card);
+  position: relative;
+  width: calc(var(--tw) * 12 + var(--depth) * 3);
+  height: calc(var(--th) * 6.5 + var(--depth) * 3);
+}
+.mj-tile {
+  position: absolute;
+  left: calc((var(--x) + 2) * var(--tw) / 2 + (3 - var(--z)) * var(--depth));
+  top: calc(var(--y) * var(--th) / 2 + (3 - var(--z)) * var(--depth));
+  width: var(--tw);
+  height: var(--th);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--tw) * 0.13);
+  background: var(--tile);
+  box-shadow:
+    inset 0 0 0 1px var(--card-edge),
+    calc(var(--depth) * 0.55) calc(var(--depth) * 0.55) 0 color-mix(in oklab, var(--tile) 72%, #6b5a3e),
+    var(--depth) var(--depth) 0 color-mix(in oklab, var(--tile) 55%, #5a4a30),
+    calc(var(--depth) + 2px) calc(var(--depth) + 3px) 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s var(--ease), filter 0.2s, box-shadow 0.15s;
+}
+.mj-tile[hidden] {
+  display: none;
+}
+.mj-tile:not(.free) {
+  filter: brightness(0.82) saturate(0.7);
+  cursor: default;
+}
+.mj-tile.free:hover {
+  transform: translate(-1px, -2px);
+}
+.mj-tile.sel {
+  background: color-mix(in oklab, var(--accent) 30%, var(--tile));
+  transform: translate(-1px, -3px);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    var(--depth) var(--depth) 0 color-mix(in oklab, var(--accent) 50%, #333),
+    0 6px 16px rgba(0, 0, 0, 0.3);
+}
+.mj-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--tw) * 0.04);
+  line-height: 1;
+  pointer-events: none;
+}
+.mj-face b {
+  font-family: var(--display);
+  font-size: calc(var(--tw) * 0.46);
+  font-weight: 750;
+}
+.mj-face svg {
+  width: calc(var(--tw) * 0.38);
+  height: calc(var(--tw) * 0.38);
+}
+.mj-face.dots { color: #2e6f9e; }
+.mj-face.sticks { color: #2f8a52; }
+.mj-face.stars { color: #c8463b; }
+.mj-tile.hint {
+  animation: mj-hint 1.4s var(--ease);
+}
+@keyframes mj-hint {
+  20%, 60% { box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 4px color-mix(in oklab, var(--accent) 40%, transparent); transform: translateY(-3px); }
+}
+.mj-tile.blocked {
+  animation: nudge 0.3s;
+}
+.mj-tile.leaving {
+  display: grid !important;
+  animation: mj-out 0.3s var(--ease) forwards;
+  pointer-events: none;
+}
+@keyframes mj-out {
+  to { opacity: 0; transform: translateY(-14px) scale(0.85); }
+}
+.mj-tile.intro {
+  animation: mj-in 0.4s var(--ease) both;
+}
+@keyframes mj-in {
+  from { opacity: 0; transform: translateY(-18px); }
+}
+
+/* ---------- Nonograms ---------- */
+
+.nonogram {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.ng {
+  --clue: calc(var(--cell) * (var(--n) / 2 + 0.5));
+  display: grid;
+  grid-template-columns: var(--clue) calc(var(--cell) * var(--n));
+  grid-template-rows: var(--clue) calc(var(--cell) * var(--n));
+  margin-right: var(--clue);
+  font-variant-numeric: tabular-nums;
+}
+.ng-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--cell));
+  align-items: end;
+}
+.ng-rows {
+  display: grid;
+  grid-template-rows: repeat(var(--n), var(--cell));
+}
+.ng-clue {
+  display: flex;
+  gap: calc(var(--cell) * 0.22);
+  font-family: var(--display);
+  font-weight: 650;
+  font-size: calc(var(--cell) * 0.46);
+  color: var(--ink);
+  transition: color 0.2s, opacity 0.2s;
+}
+.ng-clue.col {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(var(--cell) * 0.05);
+  padding-bottom: calc(var(--cell) * 0.2);
+}
+.ng-clue.row {
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: calc(var(--cell) * 0.3);
+}
+.ng-clue.col:nth-child(odd) {
+  background: color-mix(in oklab, var(--ink) 4%, transparent);
+  border-radius: 6px 6px 0 0;
+}
+.ng-clue.row:nth-child(odd) {
+  background: color-mix(in oklab, var(--ink) 4%, transparent);
+  border-radius: 6px 0 0 6px;
+}
+.ng-clue.done {
+  color: var(--muted);
+  opacity: 0.55;
+}
+.ng-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--cell));
+  grid-template-rows: repeat(var(--n), var(--cell));
+  background: var(--board);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ink) 45%, transparent), var(--shadow-lift);
+  overflow: hidden;
+  touch-action: none;
+  cursor: pointer;
+}
+.ng-cell {
+  position: relative;
+  border-right: 1px solid var(--board-line);
+  border-bottom: 1px solid var(--board-line);
+  transition: background-color 0.1s;
+}
+.ng-cell.edge-r {
+  border-right: 2px solid color-mix(in oklab, var(--ink) 40%, transparent);
+}
+.ng-cell.edge-b {
+  border-bottom: 2px solid color-mix(in oklab, var(--ink) 40%, transparent);
+}
+.ng-cell:hover {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.ng-cell.on {
+  background: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--board);
+  animation: plant 0.15s var(--ease);
+}
+.ng-cell.x::after {
+  content: "";
+  position: absolute;
+  inset: 28%;
+  background:
+    linear-gradient(45deg, transparent 43%, var(--muted) 43% 57%, transparent 57%),
+    linear-gradient(-45deg, transparent 43%, var(--muted) 43% 57%, transparent 57%);
+}
+.ng.solved .ng-cell.on {
+  background: var(--accent);
+  transition: background-color 0.5s;
+}
+.ng.solved .ng-cell.x::after {
+  opacity: 0;
+}
+
+/* ---------- Connect Four ---------- */
+
+.c4 {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.c4-wrap {
+  position: relative;
+  padding-top: var(--cell);
+}
+.c4-board {
+  position: relative;
+  width: calc(var(--cell) * 7);
+  height: calc(var(--cell) * 6);
+}
+.c4-holes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-radius: calc(var(--cell) * 0.22);
+  /* The frame is a mask with round holes, so discs show through. */
+  background: var(--accent);
+  -webkit-mask: radial-gradient(circle at center, transparent calc(var(--cell) * 0.36), #000 calc(var(--cell) * 0.37)) 0 0 / var(--cell) var(--cell);
+  mask: radial-gradient(circle at center, transparent calc(var(--cell) * 0.36), #000 calc(var(--cell) * 0.37)) 0 0 / var(--cell) var(--cell);
+  box-shadow: var(--shadow-lift);
+  z-index: 2;
+  pointer-events: none;
+}
+.c4-holes i {
+  display: none;
+}
+.c4-board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--cell) * 0.22);
+  background: color-mix(in oklab, var(--board) 70%, transparent);
+}
+.c4-discs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: calc(var(--cell) * 0.22);
+}
+.c4-disc,
+.c4-ghost {
+  position: absolute;
+  width: calc(var(--cell) * 0.78);
+  height: calc(var(--cell) * 0.78);
+  border-radius: 50%;
+  left: calc(var(--c) * var(--cell) + var(--cell) * 0.11);
+}
+.c4-disc {
+  top: calc(var(--r) * var(--cell) + var(--cell) * 0.11);
+  animation: c4-fall calc(0.12s + var(--fall) * 0.05s) cubic-bezier(0.5, 0, 0.9, 0.6) both;
+}
+@keyframes c4-fall {
+  from { transform: translateY(calc((var(--r) + 1) * var(--cell) * -1)); }
+}
+.c4-disc.p1,
+.c4-ghost {
+  background: var(--danger);
+  box-shadow: inset 0 calc(var(--cell) * -0.06) 0 rgba(0, 0, 0, 0.18);
+}
+.c4-disc.p2 {
+  background: #f2c14e;
+  box-shadow: inset 0 calc(var(--cell) * -0.06) 0 rgba(0, 0, 0, 0.18);
+}
+.c4-board.done .c4-disc:not(.win) {
+  opacity: 0.4;
+  transition: opacity 0.4s;
+}
+.c4-disc.win {
+  animation: c4-win 0.9s var(--ease) infinite alternate;
+}
+@keyframes c4-win {
+  to { transform: scale(0.82); }
+}
+.c4-ghost {
+  top: calc(var(--cell) * 0.11);
+  opacity: 0;
+  transition: opacity 0.15s, left 0.12s var(--ease);
+}
+.c4-ghost.show {
+  opacity: 0.55;
+}
+.c4-cols {
+  position: absolute;
+  inset: calc(var(--cell) * -1) 0 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  z-index: 3;
+}
+.c4-cols button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: calc(var(--cell) * 0.2);
+}
+.c4-cols button:hover {
+  background: color-mix(in oklab, var(--ink) 5%, transparent);
+}
+
+/* ---------- Memory ---------- */
+
+.memory {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.mem-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--mw));
+  gap: calc(var(--mw) * 0.12);
+}
+.mem-card {
+  width: var(--mw);
+  height: calc(var(--mw) * 1.18);
+  padding: 0;
+  border: 0;
+  background: none;
+  perspective: 700px;
+  cursor: pointer;
+  animation: rise-in 0.35s var(--ease) both;
+}
+.mem-inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.38s var(--ease);
+}
+.mem-card.up .mem-inner {
+  transform: rotateY(180deg);
+}
+.mem-back,
+.mem-face {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--mw) * 0.12);
+  backface-visibility: hidden;
+  box-shadow: var(--shadow);
+}
+.mem-back {
+  background-color: var(--back-1);
+  background-image:
+    repeating-linear-gradient(45deg, var(--back-2) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(-45deg, var(--back-2) 0 2px, transparent 2px 9px);
+  box-shadow: inset 0 0 0 calc(var(--mw) * 0.05) var(--card), var(--shadow);
+}
+.mem-card:hover:not(.up) .mem-back {
+  filter: brightness(1.08);
+}
+.mem-face {
+  transform: rotateY(180deg);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+}
+.mem-face svg {
+  width: 56%;
+  height: 56%;
+}
+.mem-card.matched .mem-face {
+  box-shadow: inset 0 0 0 2px var(--accent), var(--shadow);
+  animation: tile-pop 0.3s var(--ease);
+}
+.mem-card.matched {
+  cursor: default;
+}

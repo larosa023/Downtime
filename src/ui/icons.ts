@@ -13,9 +13,13 @@ export const ICONS = {
 };
 
 export const GAME_ICONS: Record<string, string> = {
-  klondike: `<span class="gicon">${suitSvg("H")}</span>`,
   spider: `<span class="gicon">${suitSvg("S")}</span>`,
   freecell: `<span class="gicon">${suitSvg("D")}</span>`,
+  golf: `<span class="gicon">${suitSvg("C")}</span>`,
+  mahjong: svg(`<rect x="5" y="4" width="11" height="15" rx="2"/><path d="M8 19v1.5h11V8.5H16"/><circle cx="10.5" cy="11.5" r="2.2"/>`),
+  nonogram: svg(`<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/><rect x="9.3" y="9.3" width="5.4" height="5.4" fill="currentColor"/>`),
+  connect4: svg(`<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8" cy="10" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6" fill="currentColor"/><circle cx="8" cy="14.5" r="1.6" fill="currentColor"/><circle cx="12" cy="14.5" r="1.6" fill="currentColor"/><circle cx="16" cy="14.5" r="1.6"/>`),
+  memory: svg(`<rect x="3.5" y="5" width="7.5" height="10" rx="1.5"/><rect x="13" y="9" width="7.5" height="10" rx="1.5" fill="currentColor"/>`),
   tripeaks: svg(`<path d="M3 19 8 8l4 7 4-9 5 13z"/>`),
   pyramid: svg(`<path d="M12 4 21 19H3z"/><path d="M8.5 13h7"/>`),
   sudoku: svg(`<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/>`),
