@@ -1,0 +1,117 @@
+/* ---------- Word Search ---------- */
+
+.wordsearch {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 20px;
+}
+.wordsearch.wide {
+  flex-direction: row;
+  gap: 36px;
+}
+.ws-board {
+  position: relative;
+  width: calc(var(--ws) * var(--n));
+  height: calc(var(--ws) * var(--n));
+  border-radius: 12px;
+  background: var(--board);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-lift);
+}
+.ws-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ws-marks line {
+  stroke-width: 0.78;
+  stroke-linecap: round;
+}
+.ws-marks .ws-live {
+  stroke-width: 0.7;
+}
+.ws-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--ws));
+  grid-template-rows: repeat(var(--n), var(--ws));
+  touch-action: none;
+  cursor: pointer;
+}
+.ws-cell {
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-weight: 650;
+  font-size: calc(var(--ws) * 0.5);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.ws-side {
+  min-width: 200px;
+  max-width: 320px;
+}
+.wordsearch:not(.wide) .ws-side {
+  max-width: calc(var(--ws) * var(--n));
+}
+.ws-count {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 550;
+}
+.ws-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+}
+.wordsearch:not(.wide) .ws-list {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.ws-list li {
+  position: relative;
+  width: fit-content;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--ink);
+  transition: color 0.2s;
+}
+.ws-list li::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 52%;
+  height: 0.5em;
+  margin-top: -0.25em;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--hue) 42%, transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s var(--ease);
+}
+.ws-list li.found {
+  color: var(--muted);
+}
+.ws-list li.found::after {
+  transform: scaleX(1);
+}
+
+/* Home tile art */
+.ws-a-bg { fill: var(--board); }
+.ws-a-t { font: 650 12px var(--display); text-anchor: middle; fill: var(--ink); }
+.ws-a-m1, .ws-a-m2, .ws-a-m3 { stroke-width: 14; stroke-linecap: round; }
+.ws-a-m1 { stroke: color-mix(in oklab, var(--accent) 42%, transparent); }
+.ws-a-m2 { stroke: color-mix(in oklab, var(--n2) 42%, transparent); }
+.ws-a-m3 { stroke: color-mix(in oklab, var(--danger) 42%, transparent); }

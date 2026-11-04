@@ -178,6 +178,108 @@
   --n1: #f29a4a; --n2: #9fd88a; --n3: #ff6b5b; --n4: #c7a8ff; --n5: #ffd27a; --n6: #7ed6cf; --n7: #f5e6d8; --n8: #bc9f8b;
 }
 
+/* Mint: light and fresh, green accent */
+[data-theme="mint"] {
+  color-scheme: light;
+  --bg: #e3ece7;
+  --rail: #d9e5de;
+  --surface: #f5f9f7;
+  --surface-2: #e9f1ec;
+  --ink: #17271f;
+  --muted: #56695f;
+  --line: #c3d3ca;
+  --accent: #1f7a5c;
+  --accent-strong: #145c44;
+  --accent-ink: #ffffff;
+  --accent-soft: #cfe6db;
+  --danger: #cc4a3a;
+  --table: #d1e1d8;
+  --table-2: #c3d6cb;
+  --slot: rgba(23, 39, 31, 0.16);
+  --board: #f2f7f4;
+  --board-line: #cbdad2;
+  --card: #fdfffe;
+  --card-edge: rgba(23, 39, 31, 0.14);
+  --card-ink: #17271f;
+  --card-red: #c8402f;
+  --back-1: #1f7a5c;
+  --back-2: #2f9472;
+  --shadow: 0 1px 2px rgba(15, 40, 30, 0.14), 0 2px 6px rgba(15, 40, 30, 0.08);
+  --shadow-lift: 0 10px 28px rgba(15, 40, 30, 0.22);
+  --cell: #c7d9cf;
+  --cell-hi: #d5e3db;
+  --cell-open: #f2f7f4;
+  --n1: #1f6f9e; --n2: #1f7a5c; --n3: #cc4a3a; --n4: #5a4ba0; --n5: #9a3f2a; --n6: #2c8a8a; --n7: #17271f; --n8: #6b7a72;
+}
+
+/* Dusk: plum evening with rose and sea-glass */
+[data-theme="dusk"] {
+  color-scheme: dark;
+  --bg: #1d1925;
+  --rail: #18141f;
+  --surface: #27212f;
+  --surface-2: #30293a;
+  --ink: #f1e9f2;
+  --muted: #a99bb0;
+  --line: #3b3245;
+  --accent: #e58fb2;
+  --accent-strong: #f2afca;
+  --accent-ink: #2a0f1c;
+  --accent-soft: #46303f;
+  --danger: #ff8a7a;
+  --table: #2a2333;
+  --table-2: #221c2a;
+  --slot: rgba(241, 233, 242, 0.14);
+  --board: #241e2c;
+  --board-line: #3a3144;
+  --card: #f6f0f5;
+  --card-edge: rgba(0, 0, 0, 0.4);
+  --card-ink: #221b29;
+  --card-red: #c73d5c;
+  --back-1: #7a4a72;
+  --back-2: #8fd3c8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 14px 30px rgba(0, 0, 0, 0.55);
+  --cell: #3a3144;
+  --cell-hi: #463b52;
+  --cell-open: #241e2c;
+  --n1: #8fd3c8; --n2: #e58fb2; --n3: #ff8a7a; --n4: #c9b2ff; --n5: #ffd27a; --n6: #7ab8ff; --n7: #f1e9f2; --n8: #a99bb0;
+}
+
+/* High contrast: black, white and yellow, for readability */
+[data-theme="contrast"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --rail: #000000;
+  --surface: #111111;
+  --surface-2: #1c1c1c;
+  --ink: #ffffff;
+  --muted: #d6d6d6;
+  --line: #8a8a8a;
+  --accent: #ffd400;
+  --accent-strong: #ffe766;
+  --accent-ink: #000000;
+  --accent-soft: #3a3200;
+  --danger: #ff5c5c;
+  --table: #0a0a0a;
+  --table-2: #000000;
+  --slot: rgba(255, 255, 255, 0.55);
+  --board: #0d0d0d;
+  --board-line: #6e6e6e;
+  --card: #ffffff;
+  --card-edge: #000000;
+  --card-ink: #000000;
+  --card-red: #c40000;
+  --back-1: #ffd400;
+  --back-2: #000000;
+  --shadow: 0 0 0 1px #ffffff;
+  --shadow-lift: 0 0 0 2px #ffd400;
+  --cell: #2e2e2e;
+  --cell-hi: #474747;
+  --cell-open: #000000;
+  --n1: #66ccff; --n2: #66ff99; --n3: #ff6666; --n4: #ffcc00; --n5: #ff99ff; --n6: #66ffff; --n7: #ffffff; --n8: #cccccc;
+}
+
 /* ---------- Base ---------- */
 
 *,

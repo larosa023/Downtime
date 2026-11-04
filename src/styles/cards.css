@@ -190,6 +190,14 @@
   background-size: calc(var(--cw) * 0.16) calc(var(--cw) * 0.16);
   background-position: center;
 }
+[data-back="stripes"] .card-back {
+  background-image: repeating-linear-gradient(90deg, var(--back-2) 0 calc(var(--cw) * 0.05), transparent calc(var(--cw) * 0.05) calc(var(--cw) * 0.12));
+}
+[data-back="checker"] .card-back {
+  background-image: conic-gradient(var(--back-2) 25%, transparent 0 50%, var(--back-2) 0 75%, transparent 0);
+  background-size: calc(var(--cw) * 0.18) calc(var(--cw) * 0.18);
+  background-position: center;
+}
 [data-back="plain"] .card-back {
   background-image: radial-gradient(circle at 50% 50%, var(--back-2) 0 calc(var(--cw) * 0.12), transparent calc(var(--cw) * 0.125));
 }
@@ -230,4 +238,26 @@
 /* Cards deep in a stack don't cast their own shadow. */
 .card.buried .card-inner {
   box-shadow: none;
+}
+
+/* Four-color deck: diamonds blue, clubs green. */
+.four-color .card-face.s-D {
+  color: #1f63c4;
+}
+.four-color .card-face.s-C {
+  color: #1d8a4a;
+}
+
+/* Large-print cards: bigger corner indexes, easier to read in a cascade. */
+.large-cards .idx {
+  width: calc(var(--cw) * 0.32);
+  font-size: calc(var(--cw) * 0.29);
+}
+.large-cards .idx svg {
+  width: calc(var(--cw) * 0.2);
+  height: calc(var(--cw) * 0.2);
+}
+.large-cards .idx.tl {
+  top: calc(var(--cw) * 0.035);
+  left: calc(var(--cw) * 0.025);
 }

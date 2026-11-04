@@ -17,9 +17,17 @@ type AllStats = Record<string, GameStats>;
 const empty = (): GameStats => ({ played: 0, won: 0, streak: 0, bestStreak: 0 });
 
 let all: AllStats = load<AllStats>("stats", {});
+const listeners = new Set<() => void>();
+
+/** Called after any stat changes (used to check achievements). */
+export function onStatsChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
 
 function persist() {
   save("stats", all);
+  listeners.forEach((fn) => fn());
 }
 
 export function getStats(key: string): GameStats {

@@ -3,6 +3,11 @@ import { GameTimer } from "../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../core/stats";
 import { load, remove, save } from "../core/storage";
 import { sfx } from "../core/sound";
+import { dailyRng, dayNumber, todayKey } from "../core/rng";
+import { markDailyDone } from "../core/daily";
+
+/** Randomness source; swapped for a seeded one when building the daily puzzle. */
+let rand: () => number = Math.random;
 
 const CLUES: Record<string, number> = { easy: 40, medium: 32, hard: 26 };
 const row = (i: number) => Math.floor(i / 9);
@@ -17,7 +22,7 @@ const PEERS: number[][] = Array.from({ length: 81 }, (_, i) =>
 function randomOrder(): number[] {
   const a = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rand() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -52,11 +57,24 @@ function countSolutions(grid: number[], limit: number, fill = false): number {
   return total;
 }
 
-function generate(clues: number): { puzzle: number[]; solution: number[] } {
+function generate(clues: number, rng: () => number = Math.random): { puzzle: number[]; solution: number[] } {
+  rand = rng;
+  try {
+    return build(clues);
+  } finally {
+    rand = Math.random;
+  }
+}
+
+function build(clues: number): { puzzle: number[]; solution: number[] } {
   const solution = Array(81).fill(0);
   countSolutions(solution, 1, true);
   const puzzle = solution.slice();
-  const order = [...Array(81).keys()].sort(() => Math.random() - 0.5);
+  const order = [...Array(81).keys()];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
   let filled = 81;
   for (const i of order) {
     if (filled <= clues) break;
@@ -92,13 +110,15 @@ class Sudoku implements GameInstance {
   private sel = 40;
   private notesMode = false;
   private level: string;
+  private daily: boolean;
   private timer: GameTimer;
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
-    this.level = ctx.option("level") in CLUES ? ctx.option("level") : "easy";
+    this.daily = ctx.option("mode") === "daily";
+    this.level = this.daily ? `daily-${todayKey()}` : ctx.option("level") in CLUES ? ctx.option("level") : "easy";
     this.el = document.createElement("div");
     this.el.className = "sudoku";
     this.el.innerHTML = `<div class="sdk-grid" role="grid" aria-label="Sudoku"></div><div class="sdk-pad"></div>`;
@@ -146,12 +166,12 @@ class Sudoku implements GameInstance {
   }
 
   private get key() {
-    return `sudoku:${this.level}`;
+    return this.daily ? "sudoku:daily" : `sudoku:${this.level}`;
   }
 
   newGame() {
     if (this.counted && !this.over) recordLoss(this.key);
-    const { puzzle, solution } = generate(CLUES[this.level]);
+    const { puzzle, solution } = this.daily ? generate(CLUES.medium, dailyRng("sudoku")) : generate(CLUES[this.level]);
     this.s = {
       given: puzzle.map((v) => v > 0),
       values: puzzle,
@@ -277,6 +297,7 @@ class Sudoku implements GameInstance {
     const { newBestTime } = recordWin(this.key, secs);
     remove("save:sudoku");
     sfx.win();
+    if (this.daily) markDailyDone("sudoku");
     this.gridEl.classList.add("solved");
     this.status();
     const m = this.s.mistakes;
@@ -284,7 +305,7 @@ class Sudoku implements GameInstance {
       () =>
         this.ctx.end({
           won: true,
-          title: "Solved",
+          title: this.daily ? `Daily #${dayNumber()} solved` : "Solved",
           lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, m ? `${m} mistake${m > 1 ? "s" : ""}` : "No mistakes"],
         }),
       900,
@@ -347,7 +368,17 @@ export const sudoku: GameModule = {
   blurb: "Fill the grid so every row, column and box has 1 through 9.",
   art: "sudoku",
   hasUndo: true,
+  daily: true,
   options: [
+    {
+      key: "mode",
+      label: "Mode",
+      default: "practice",
+      choices: [
+        { value: "practice", label: "Practice" },
+        { value: "daily", label: "Daily puzzle" },
+      ],
+    },
     {
       key: "level",
       label: "Level",
@@ -359,6 +390,6 @@ export const sudoku: GameModule = {
       ],
     },
   ],
-  statsKey: (o) => `sudoku:${o("level")}`,
+  statsKey: (o) => (o("mode") === "daily" ? "sudoku:daily" : `sudoku:${o("level")}`),
   create: (root, ctx) => new Sudoku(root, ctx),
 };

@@ -113,7 +113,8 @@ export abstract class CardGame implements GameInstance {
   }
 
   undo() {
-    if (this.locked) return;
+    if (this.busy) return;
+    if (this.locked && !this.over) return;
     const snap = this.history.pop();
     if (!snap) return;
     this.restore(snap);
@@ -176,6 +177,7 @@ export abstract class CardGame implements GameInstance {
 
   protected afterAction(sound: "place" | "flip" | "deal" | "none" = "place") {
     this.settle();
+    this.ctx.setFinish(!this.over && this.canAutoFinish());
     if (sound !== "none") sfx[sound]();
     this.table.render();
     this.status();
@@ -183,6 +185,101 @@ export abstract class CardGame implements GameInstance {
     this.checkWin();
     if (!this.over) this.checkStuck();
     if (!this.over) this.runAutoplay();
+  }
+
+  // ----- hints and auto-finish (shared by every solitaire) -----
+
+  /** Legal moves, best first. Skips moves that obviously go nowhere. */
+  protected findMoves(): { from: Pile; index: number; to: Pile; score: number }[] {
+    const out: { from: Pile; index: number; to: Pile; score: number }[] = [];
+    for (const from of this.piles) {
+      if (from.kind === "foundation" || from.kind === "stock") continue;
+      for (let index = 0; index < from.cards.length; index++) {
+        if (!this.canPick(from, index)) continue;
+        for (const to of this.piles) {
+          if (to === from || to.kind === "stock" || !this.canDrop(from, index, to)) continue;
+          let score = 10;
+          if (to.kind === "foundation" || to.kind === "waste") score += 100;
+          const below = from.cards[index - 1];
+          if (below && !below.up) score += 50;
+          if (from.kind === "waste" || from.kind === "cell") score += 8;
+          if (to.kind === "cell") score -= 15;
+          if (to.kind === "tableau" && !to.cards.length) {
+            // Moving a whole column into an empty one changes nothing.
+            if (index === 0 && from.kind === "tableau") continue;
+            score -= 5;
+          }
+          if (from.kind === "tableau" && to.kind === "tableau" && below?.up && to.cards.length) {
+            // Shuffling a run between two equally good spots is rarely useful.
+            const top = to.cards[to.cards.length - 1];
+            if (top.rank === below.rank) continue;
+          }
+          out.push({ from, index, to, score });
+        }
+      }
+    }
+    return out.sort((a, b) => b.score - a.score);
+  }
+
+  requestHint() {
+    if (this.locked) return;
+    const best = this.findMoves()[0];
+    if (best) {
+      const target = best.to.cards[best.to.cards.length - 1];
+      this.table.flash([...best.from.cards.slice(best.index), ...(target ? [target] : [])]);
+      return;
+    }
+    const stock = this.piles.find((p) => p.kind === "stock");
+    if (stock?.cards.length) {
+      this.table.flash([stock.cards[stock.cards.length - 1]]);
+      this.ctx.toast("No moves on the table. Deal from the stock.");
+    } else this.ctx.toast("No moves found. Try Undo.");
+  }
+
+  /** True once every remaining card is face up with nothing left to deal and a foundation move exists. */
+  protected canAutoFinish(): boolean {
+    const found = this.piles.filter((p) => p.kind === "foundation");
+    if (!found.length) return false;
+    for (const p of this.piles) {
+      if ((p.kind === "stock" || p.kind === "waste") && p.cards.length) return false;
+      if (p.kind !== "foundation" && p.cards.some((c) => !c.up)) return false;
+    }
+    return this.nextFoundationMove() != null;
+  }
+
+  private nextFoundationMove(): { from: Pile; to: Pile } | null {
+    for (const from of this.piles) {
+      if (from.kind === "foundation" || !from.cards.length) continue;
+      const i = from.cards.length - 1;
+      if (!this.canPick(from, i)) continue;
+      const to = this.piles.find((p) => p.kind === "foundation" && this.canDrop(from, i, p));
+      if (to) return { from, to };
+    }
+    return null;
+  }
+
+  autoFinish() {
+    if (this.locked || !this.canAutoFinish()) return;
+    this.checkpoint();
+    this.ctx.setFinish(false);
+    const step = () => {
+      const m = this.over ? null : this.nextFoundationMove();
+      if (!m) {
+        this.busy = 0;
+        this.ctx.setFinish(!this.over && this.canAutoFinish());
+        return;
+      }
+      this.transfer(m.from, m.from.cards.length - 1, m.to);
+      this.moves += 1;
+      this.settle();
+      sfx.place();
+      this.table.render();
+      this.status();
+      this.persist();
+      this.checkWin();
+      this.busy = window.setTimeout(step, 70);
+    };
+    step();
   }
 
   private checkStuck() {

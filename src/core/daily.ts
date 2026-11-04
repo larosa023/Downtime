@@ -5,6 +5,12 @@ import { todayKey } from "./rng";
 type DailyLog = Record<string, string[]>; // date -> game ids
 
 let log: DailyLog = load<DailyLog>("daily", {});
+const listeners = new Set<() => void>();
+
+export function onDailyChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
 
 /** Call when a daily puzzle is solved. */
 export function markDailyDone(gameId: string, d = new Date()) {
@@ -13,6 +19,7 @@ export function markDailyDone(gameId: string, d = new Date()) {
   done.add(gameId);
   log = { ...log, [k]: [...done] };
   save("daily", log);
+  listeners.forEach((fn) => fn());
 }
 
 export function dailyDone(gameId: string, d = new Date()): boolean {

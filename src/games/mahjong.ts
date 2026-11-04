@@ -4,6 +4,8 @@ import { formatTime, recordLoss, recordStart, recordWin } from "../core/stats";
 import { load, remove, save } from "../core/storage";
 import { sfx } from "../core/sound";
 import { motionEnabled } from "../core/settings";
+import { dailyRng, dayNumber, todayKey } from "../core/rng";
+import { markDailyDone } from "../core/daily";
 
 // Positions are in half-tile units: a tile at (x, y) covers x..x+2, y..y+2.
 interface Spot {
@@ -32,7 +34,7 @@ const LAYOUT: Spot[] = [
 const KINDS = 27;
 const SUITS = ["dots", "sticks", "stars"] as const;
 
-const SAVE = "save:mahjong";
+const SAVE_PRACTICE = "save:mahjong";
 
 function overlaps(a: Spot, b: Spot) {
   return Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2;
@@ -60,13 +62,16 @@ function isFree(i: number, alive: (j: number) => boolean): boolean {
  * free spots, give them the same kind, and remove them. Playing that removal
  * order forwards always works.
  */
-function assignKinds(spots: number[], kinds: number[]): Map<number, number> | null {
+function assignKinds(spots: number[], kinds: number[], rng: () => number = Math.random): Map<number, number> | null {
   for (let attempt = 0; attempt < 300; attempt++) {
     const pairs: number[] = [];
     const counts = new Map<number, number>();
     kinds.forEach((k) => counts.set(k, (counts.get(k) ?? 0) + 1));
     for (const [k, n] of counts) for (let i = 0; i < n / 2; i++) pairs.push(k);
-    pairs.sort(() => Math.random() - 0.5);
+    for (let i = pairs.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+    }
     const alive = new Set(spots);
     const result = new Map<number, number>();
     let ok = true;
@@ -77,10 +82,11 @@ function assignKinds(spots: number[], kinds: number[]): Map<number, number> | nu
         break;
       }
       // Favor tiles high in the stack so lower layers don't strand.
-      free.sort((a, b) => LAYOUT[b].z - LAYOUT[a].z + (Math.random() - 0.5) * 1.5);
+      const jitter = new Map(free.map((i) => [i, (rng() - 0.5) * 1.5]));
+      free.sort((a, b) => LAYOUT[b].z - LAYOUT[a].z + jitter.get(a)! - jitter.get(b)!);
       const a = free[0];
       const rest = free.slice(1);
-      const b = rest[Math.floor(Math.random() * rest.length)];
+      const b = rest[Math.floor(rng() * rest.length)];
       const k = pairs.pop()!;
       result.set(a, k);
       result.set(b, k);
@@ -110,7 +116,12 @@ class Mahjong implements GameInstance {
   private counted = false;
   private resizeObs: ResizeObserver;
 
+  private daily: boolean;
+  private SAVE: string;
+
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.daily = ctx.option("mode") === "daily";
+    this.SAVE = this.daily ? `save:mahjong:daily:${todayKey()}` : SAVE_PRACTICE;
     this.el = document.createElement("div");
     this.el.className = "mahjong";
     this.board = document.createElement("div");
@@ -137,7 +148,7 @@ class Mahjong implements GameInstance {
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.el);
 
-    const saved = load<(State & { seconds: number; counted: boolean }) | null>(SAVE, null);
+    const saved = load<(State & { seconds: number; counted: boolean }) | null>(this.SAVE, null);
     if (saved && saved.kinds?.length === LAYOUT.length) {
       this.s = { kinds: saved.kinds, gone: saved.gone, shuffles: saved.shuffles };
       this.counted = saved.counted;
@@ -147,11 +158,15 @@ class Mahjong implements GameInstance {
     } else this.newGame();
   }
 
+  private get key() {
+    return this.daily ? "mahjong:daily" : "mahjong";
+  }
+
   newGame() {
-    if (this.counted && !this.over) recordLoss("mahjong");
+    if (this.counted && !this.over) recordLoss(this.key);
     const all = [...Array(LAYOUT.length).keys()];
     const kinds = all.map((i) => Math.floor(i / 4) % KINDS);
-    const map = assignKinds(all, kinds)!;
+    const map = assignKinds(all, kinds, this.daily ? dailyRng("mahjong") : Math.random)!;
     this.s = { kinds: all.map((i) => map.get(i)!), gone: all.map(() => false), shuffles: 0 };
     this.history = [];
     this.selected = null;
@@ -192,8 +207,8 @@ class Mahjong implements GameInstance {
   }
 
   private persist() {
-    if (this.over) return remove(SAVE);
-    save(SAVE, { ...this.s, seconds: this.timer.seconds, counted: this.counted });
+    if (this.over) return remove(this.SAVE);
+    save(this.SAVE, { ...this.s, seconds: this.timer.seconds, counted: this.counted });
   }
 
   private alive = (j: number) => !this.s.gone[j];
@@ -220,6 +235,10 @@ class Mahjong implements GameInstance {
     for (let a = 0; a < free.length; a++)
       for (let b = a + 1; b < free.length; b++) if (this.s.kinds[free[a]] === this.s.kinds[free[b]]) out.push([free[a], free[b]]);
     return out;
+  }
+
+  requestHint() {
+    this.hint();
   }
 
   hint() {
@@ -254,7 +273,7 @@ class Mahjong implements GameInstance {
       this.selected = null;
       if (!this.counted) {
         this.counted = true;
-        recordStart("mahjong");
+        recordStart(this.key);
       }
       this.timer.start();
       sfx.merge();
@@ -299,7 +318,7 @@ class Mahjong implements GameInstance {
       } else {
         this.over = true;
         this.timer.stop();
-        recordLoss("mahjong");
+        recordLoss(this.key);
         this.ctx.end({ won: false, title: "No moves left", lines: ["Undo to try another pair, or start a new board."] });
       }
     }
@@ -310,16 +329,17 @@ class Mahjong implements GameInstance {
     this.over = true;
     this.timer.stop();
     const secs = Math.round(this.timer.seconds);
-    const { newBestTime } = recordWin("mahjong", secs);
-    remove(SAVE);
+    const { newBestTime } = recordWin(this.key, secs);
+    remove(this.SAVE);
     sfx.win();
+    if (this.daily) markDailyDone("mahjong");
     this.status();
     const sh = this.s.shuffles;
     setTimeout(
       () =>
         this.ctx.end({
           won: true,
-          title: "Board cleared",
+          title: this.daily ? `Daily #${dayNumber()} cleared` : "Board cleared",
           lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, sh ? `${sh} shuffle${sh > 1 ? "s" : ""}` : "No shuffles needed"],
         }),
       500,
@@ -377,6 +397,18 @@ export const mahjong: GameModule = {
   blurb: "Match free tiles in pairs until the board is clear. Press H for a hint.",
   art: "mahjong",
   hasUndo: true,
-  statsKey: () => "mahjong",
+  daily: true,
+  options: [
+    {
+      key: "mode",
+      label: "Mode",
+      default: "practice",
+      choices: [
+        { value: "practice", label: "Practice" },
+        { value: "daily", label: "Daily puzzle" },
+      ],
+    },
+  ],
+  statsKey: (o) => (o("mode") === "daily" ? "mahjong:daily" : "mahjong"),
   create: (root, ctx) => new Mahjong(root, ctx),
 };

@@ -10,6 +10,18 @@ export const ICONS = {
   undo: svg(`<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>`),
   refresh: svg(`<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>`),
   close: svg(`<path d="M6 6l12 12M18 6 6 18"/>`),
+  star: svg(`<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>`),
+  starFilled: svg(`<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="currentColor"/>`),
+  hint: svg(`<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>`),
+  finish: svg(`<path d="M5 6l7 6-7 6zM13 6l7 6-7 6z"/>`),
+  mini: svg(`<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/>`),
+  expand: svg(`<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>`),
+  trophy: svg(`<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/>`),
+  calendar: svg(`<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>`),
+  chevron: svg(`<path d="m8 10 4 4 4-4"/>`),
+  sidebar: svg(`<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9 4.5v15"/>`),
+  check: svg(`<path d="m5 12.5 4.5 4.5L19 7.5"/>`),
+  lock: svg(`<rect x="5.5" y="11" width="13" height="9" rx="2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/>`),
 };
 
 export const GAME_ICONS: Record<string, string> = {

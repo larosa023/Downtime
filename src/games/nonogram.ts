@@ -3,6 +3,8 @@ import { GameTimer } from "../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../core/stats";
 import { load, remove, save } from "../core/storage";
 import { sfx } from "../core/sound";
+import { dailyRng, dayNumber, todayKey } from "../core/rng";
+import { markDailyDone } from "../core/daily";
 
 const SIZES: Record<string, number> = { small: 5, medium: 10, large: 15 };
 const SAVE = "save:nonogram";
@@ -94,11 +96,11 @@ function logicSolvable(rows: number[][], cols: number[][], size: number): boolea
   return g.every((row) => row.every((v) => v !== -1));
 }
 
-function generate(size: number) {
+function generate(size: number, rng: () => number = Math.random) {
   let best: { rows: number[][]; cols: number[][] } | null = null;
   for (let attempt = 0; attempt < 400; attempt++) {
-    const density = 0.55 + Math.random() * 0.1;
-    const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => (Math.random() < density ? 1 : 0)));
+    const density = 0.55 + rng() * 0.1;
+    const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => (rng() < density ? 1 : 0)));
     const rows = grid.map(cluesOf);
     const cols = grid[0].map((_, c) => cluesOf(grid.map((r) => r[c])));
     best = { rows, cols };
@@ -109,6 +111,7 @@ function generate(size: number) {
 
 interface Saved {
   size: number;
+  day?: string;
   rows: number[][];
   cols: number[][];
   cells: number[];
@@ -122,6 +125,8 @@ class Nonogram implements GameInstance {
   private cellEls: HTMLDivElement[] = [];
   private size: number;
   private level: string;
+  private daily: boolean;
+  private dayTag: string;
   private rows: number[][] = [];
   private cols: number[][] = [];
   private cells: number[] = [];
@@ -133,8 +138,11 @@ class Nonogram implements GameInstance {
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.daily = ctx.option("mode") === "daily";
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
+    if (this.daily) this.level = "medium";
     this.size = SIZES[this.level];
+    this.dayTag = this.daily ? todayKey() : "";
     this.el = document.createElement("div");
     this.el.className = "nonogram";
     root.appendChild(this.el);
@@ -145,7 +153,7 @@ class Nonogram implements GameInstance {
     this.el.addEventListener("contextmenu", (e) => e.preventDefault());
 
     const saved = load<Saved | null>(SAVE, null);
-    if (saved && saved.size === this.size) {
+    if (saved && saved.size === this.size && (saved.day ?? "") === this.dayTag) {
       this.rows = saved.rows;
       this.cols = saved.cols;
       this.cells = saved.cells;
@@ -157,12 +165,12 @@ class Nonogram implements GameInstance {
   }
 
   private get key() {
-    return `nonogram:${this.level}`;
+    return this.daily ? "nonogram:daily" : `nonogram:${this.level}`;
   }
 
   newGame() {
     if (this.counted && !this.over) recordLoss(this.key);
-    const p = generate(this.size);
+    const p = generate(this.size, this.daily ? dailyRng("nonogram") : Math.random);
     this.rows = p.rows;
     this.cols = p.cols;
     this.cells = Array(this.size * this.size).fill(0);
@@ -202,7 +210,7 @@ class Nonogram implements GameInstance {
 
   private persist() {
     if (this.over) return remove(SAVE);
-    const data: Saved = { size: this.size, rows: this.rows, cols: this.cols, cells: this.cells, seconds: this.timer.seconds, counted: this.counted };
+    const data: Saved = { day: this.dayTag, size: this.size, rows: this.rows, cols: this.cols, cells: this.cells, seconds: this.timer.seconds, counted: this.counted };
     save(SAVE, data);
   }
 
@@ -324,10 +332,11 @@ class Nonogram implements GameInstance {
     const { newBestTime } = recordWin(this.key, secs);
     remove(SAVE);
     sfx.win();
+    if (this.daily) markDailyDone("nonogram");
     this.el.querySelector(".ng")!.classList.add("solved");
     this.ctx.setUndo(false);
     setTimeout(
-      () => this.ctx.end({ won: true, title: "Solved", lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, `${this.size}×${this.size}`] }),
+      () => this.ctx.end({ won: true, title: this.daily ? `Daily #${dayNumber()} solved` : "Solved", lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, `${this.size}×${this.size}`] }),
       700,
     );
   }
@@ -344,7 +353,17 @@ export const nonogram: GameModule = {
   blurb: "Fill cells so each row and column matches its numbers. Right-click to mark an X.",
   art: "nonogram",
   hasUndo: true,
+  daily: true,
   options: [
+    {
+      key: "mode",
+      label: "Mode",
+      default: "practice",
+      choices: [
+        { value: "practice", label: "Practice" },
+        { value: "daily", label: "Daily puzzle" },
+      ],
+    },
     {
       key: "size",
       label: "Size",
@@ -356,6 +375,6 @@ export const nonogram: GameModule = {
       ],
     },
   ],
-  statsKey: (o) => `nonogram:${o("size")}`,
+  statsKey: (o) => (o("mode") === "daily" ? "nonogram:daily" : `nonogram:${o("size")}`),
   create: (root, ctx) => new Nonogram(root, ctx),
 };

@@ -278,7 +278,7 @@ export class CardTable {
         : suitSvg(card.suit, "pip");
     el.innerHTML = `
       <div class="card-inner">
-        <div class="card-face ${color}">
+        <div class="card-face ${color} s-${card.suit}">
           <div class="idx tl"><span>${r}</span>${suitSvg(card.suit)}</div>
           ${center}
           <div class="idx br"><span>${r}</span>${suitSvg(card.suit)}</div>

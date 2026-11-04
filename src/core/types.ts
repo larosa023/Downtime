@@ -30,6 +30,8 @@ export interface GameContext {
   toast(message: string): void;
   /** Current values of this game's options. */
   option(key: string): string;
+  /** Show or hide the Finish button (auto-complete). Optional for games to call. */
+  setFinish(visible: boolean): void;
 }
 
 export interface GameInstance {
@@ -37,6 +39,10 @@ export interface GameInstance {
   undo?(): void;
   /** Called when the window or board is resized. */
   resize?(): void;
+  /** Point out a possible move. Shows a Hint button when present. */
+  requestHint?(): void;
+  /** Play out the rest of the game automatically (see GameContext.setFinish). */
+  autoFinish?(): void;
   /** Persist anything worth resuming before the game is torn down. */
   destroy(): void;
 }
