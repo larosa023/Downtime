@@ -1,0 +1,101 @@
+/* ---------- Reversi ---------- */
+
+.reversi {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.rv-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: var(--bs);
+  height: var(--bs);
+  padding: calc(var(--bs) * 0.012);
+  gap: calc(var(--bs) * 0.006);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--accent) 45%, #102018);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-lift);
+}
+.rv-cell {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--accent) 55%, var(--board));
+  display: grid;
+  place-items: center;
+  cursor: default;
+  perspective: 300px;
+}
+.rv-cell.legal {
+  cursor: pointer;
+}
+.rv-cell.legal::after {
+  content: "";
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: color-mix(in oklab, #111 35%, transparent);
+  transition: transform 0.15s var(--ease);
+}
+.rv-cell.legal:hover::after {
+  transform: scale(1.6);
+  background: color-mix(in oklab, #111 45%, transparent);
+}
+.rv-cell.last {
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, #f2c14e 85%, transparent);
+}
+
+.rv-disc {
+  position: absolute;
+  inset: 11%;
+  transform-style: preserve-3d;
+  transition: transform 0.42s var(--ease);
+  opacity: 0;
+}
+.rv-cell.filled .rv-disc {
+  opacity: 1;
+}
+.rv-cell.light .rv-disc {
+  transform: rotateY(180deg);
+}
+.rv-a,
+.rv-b {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  backface-visibility: hidden;
+}
+.rv-a {
+  background: radial-gradient(circle at 40% 35%, #4a5561, #1d232a 70%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+}
+.rv-b {
+  transform: rotateY(180deg);
+  background: radial-gradient(circle at 40% 35%, #ffffff, #e4dfd2 70%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+}
+.rv-cell.placed .rv-disc {
+  animation: rv-drop 0.3s var(--ease);
+}
+@keyframes rv-drop {
+  from {
+    scale: 1.35;
+    opacity: 0;
+  }
+}
+
+.rv-art-board {
+  fill: color-mix(in oklab, var(--accent) 55%, var(--board));
+}
+.rv-art-line {
+  stroke: color-mix(in oklab, var(--accent) 45%, #102018);
+  stroke-width: 1;
+}
+.rv-art-dark {
+  fill: #232a32;
+}
+.rv-art-light {
+  fill: #f6f3ea;
+}

@@ -135,6 +135,7 @@ class ConnectFour implements GameInstance {
   private firstPlayer: Cell = 1;
   private hover = -1;
   private aiTimer = 0;
+  private endTimers: number[] = [];
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
@@ -179,6 +180,8 @@ class ConnectFour implements GameInstance {
 
   newGame() {
     clearTimeout(this.aiTimer);
+    this.endTimers.forEach(clearTimeout);
+    this.endTimers = [];
     if (this.counted && !this.over) recordLoss(this.key);
     this.b = Array.from({ length: COLS }, () => Array(ROWS).fill(0) as Cell[]);
     this.moves = 0;
@@ -197,6 +200,7 @@ class ConnectFour implements GameInstance {
 
   destroy() {
     clearTimeout(this.aiTimer);
+    this.endTimers.forEach(clearTimeout);
     window.removeEventListener("keydown", this.onKey);
     this.resizeObs.disconnect();
     this.el.remove();
@@ -269,10 +273,10 @@ class ConnectFour implements GameInstance {
   private finish(who: Cell, cells: [number, number][]) {
     this.over = true;
     this.paintGhost();
-    setTimeout(() => {
+    this.endTimers.push(window.setTimeout(() => {
       for (const [c, r] of cells) this.discs.querySelector(`[data-at="${c},${r}"]`)?.classList.add("win");
       if (cells.length) this.boardEl.classList.add("done");
-    }, 380);
+    }, 380));
     if (who === 1) {
       recordWin(this.key);
       sfx.win();
@@ -282,7 +286,7 @@ class ConnectFour implements GameInstance {
     }
     this.status();
     const s = getStats(this.key);
-    setTimeout(
+    this.endTimers.push(window.setTimeout(
       () =>
         this.ctx.end({
           won: who === 1,
@@ -290,7 +294,7 @@ class ConnectFour implements GameInstance {
           lines: [`${s.won} won of ${s.played} played on ${this.level}`],
         }),
       1300,
-    );
+    ));
   }
 
   private status() {

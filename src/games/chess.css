@@ -1,0 +1,231 @@
+/* ---------- Chess ---------- */
+
+.chess {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.ch-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: var(--bs);
+}
+.ch-board {
+  position: relative;
+  width: var(--bs);
+  height: var(--bs);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-lift);
+  touch-action: none;
+  user-select: none;
+}
+.ch-squares {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+}
+/* Mid-tone squares tinted by the theme accent, so both piece colors read in every theme. */
+.ch-sq {
+  position: relative;
+  background: color-mix(in oklab, var(--accent) 16%, #e9ebe4);
+}
+.ch-sq.dark {
+  background: color-mix(in oklab, var(--accent) 62%, #7d8a8c);
+}
+.ch-sq.last::before,
+.ch-sq.sel::before,
+.ch-sq.check::before,
+.ch-sq.hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.ch-sq.last::before {
+  background: color-mix(in oklab, #f2c14e 38%, transparent);
+}
+.ch-sq.sel::before {
+  background: color-mix(in oklab, #f2c14e 60%, transparent);
+}
+.ch-sq.hover::before {
+  box-shadow: inset 0 0 0 4px rgba(20, 28, 36, 0.35);
+}
+.ch-sq.check::before {
+  background: radial-gradient(circle, var(--danger) 0 30%, color-mix(in oklab, var(--danger) 55%, transparent) 60%, color-mix(in oklab, var(--danger) 25%, transparent) 100%);
+}
+.ch-sq.target::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20, 28, 36, 0.28);
+  z-index: 3;
+  pointer-events: none;
+}
+.ch-sq.capture::after {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  border: calc(var(--bs) / 8 * 0.08) solid rgba(20, 28, 36, 0.3);
+  z-index: 3;
+  pointer-events: none;
+}
+.ch-rank,
+.ch-file {
+  position: absolute;
+  font-family: var(--ui);
+  font-weight: 700;
+  font-size: calc(var(--bs) / 8 * 0.18);
+  color: rgba(20, 28, 36, 0.55);
+  pointer-events: none;
+}
+.ch-rank {
+  top: 3%;
+  left: 5%;
+}
+.ch-file {
+  bottom: 2%;
+  right: 6%;
+}
+
+.ch-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ch-piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 12.5%;
+  display: grid;
+  place-items: center;
+  transition: transform 0.22s var(--ease);
+  z-index: 2;
+}
+.ch-piece.instant,
+.ch-piece.dragging {
+  transition: none;
+}
+.ch-piece.dragging {
+  z-index: 10;
+  scale: 1.12;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+}
+.ch-piece.intro {
+  animation: ch-in 0.35s var(--ease) both;
+}
+@keyframes ch-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+.ch-piece .cp {
+  width: 88%;
+  height: 88%;
+  display: block;
+}
+.ch-piece svg,
+.ch-tray svg,
+.ch-promo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Piece colors stay fixed so they read on every theme. */
+.cp.w {
+  fill: #f8f5ec;
+  stroke: #232a33;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.cp.w .d {
+  stroke: #232a33;
+  fill: #232a33;
+}
+.cp.b {
+  fill: #262d36;
+  stroke: #0e1216;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.cp.b .d {
+  stroke: #e9e4d6;
+  fill: #e9e4d6;
+}
+.ch-piece .cp {
+  filter: drop-shadow(0 1.5px 1px rgba(0, 0, 0, 0.25));
+}
+
+.ch-tray {
+  display: flex;
+  align-items: center;
+  height: calc(var(--bs) / 8 * 0.42);
+  min-height: 18px;
+  gap: 0;
+}
+.ch-tray .cp {
+  width: calc(var(--bs) / 8 * 0.42);
+  height: calc(var(--bs) / 8 * 0.42);
+  margin-right: calc(var(--bs) / 8 * -0.12);
+  display: block;
+}
+.ch-tray em {
+  margin-left: 14px;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ch-promo {
+  position: absolute;
+  top: 0;
+  left: calc(var(--c) * 12.5%);
+  width: 12.5%;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  background: var(--surface);
+  border-radius: 0 0 10px 10px;
+  box-shadow: var(--shadow-lift);
+  animation: rise-in 0.2s var(--ease);
+}
+.ch-promo[hidden] {
+  display: none;
+}
+.ch-promo-btn {
+  aspect-ratio: 1;
+  border: 0;
+  padding: 8%;
+  background: transparent;
+  cursor: pointer;
+}
+.ch-promo-btn:hover {
+  background: var(--accent-soft);
+}
+.ch-promo-btn .cp {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Home tile art */
+.ch-art-light {
+  fill: color-mix(in oklab, var(--accent) 16%, #e9ebe4);
+}
+.ch-art-dark {
+  fill: color-mix(in oklab, var(--accent) 62%, #7d8a8c);
+}
