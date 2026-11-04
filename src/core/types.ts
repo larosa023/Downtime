@@ -41,13 +41,29 @@ export interface GameInstance {
   destroy(): void;
 }
 
+export type GameGroup = "cards" | "puzzles" | "words" | "board" | "arcade";
+
+export const GROUPS: { id: GameGroup; name: string }[] = [
+  { id: "cards", name: "Cards" },
+  { id: "puzzles", name: "Puzzles" },
+  { id: "words", name: "Words" },
+  { id: "board", name: "Board games" },
+  { id: "arcade", name: "Arcade" },
+];
+
 export interface GameModule {
   id: string;
   name: string;
-  group: "cards" | "puzzles" | "arcade";
+  group: GameGroup;
   blurb: string;
-  /** Small SVG illustration for the home screen. */
+  /** Key of a built-in illustration in ui/art.ts (older games). */
   art: string;
+  /** Inner SVG markup for the home tile, drawn in a 252×144 viewBox. Used instead of `art` when set. */
+  artSvg?: string;
+  /** Inner SVG markup for the sidebar icon, drawn in a 24×24 viewBox with stroke="currentColor". */
+  iconSvg?: string;
+  /** True if the game offers a daily puzzle (the option key "mode" with value "daily"). */
+  daily?: boolean;
   options?: GameOption[];
   /** Key under which stats are kept, given current options. */
   statsKey(option: (key: string) => string): string;

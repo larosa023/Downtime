@@ -17,7 +17,7 @@ import {
 } from "./core/settings";
 import { allStats, formatTime, getStats, resetStats } from "./core/stats";
 import { load } from "./core/storage";
-import { GameContext, GameInstance, GameModule, StatusItem } from "./core/types";
+import { GameContext, GameInstance, GameModule, GROUPS, StatusItem } from "./core/types";
 import { installSuitSprite } from "./cards/deck";
 import { GAMES, gameById } from "./games";
 import { gameArt } from "./ui/art";
@@ -36,12 +36,10 @@ app.innerHTML = `
         <span>Downtime</span>
       </a>
       <a class="nav-item" href="#/" data-route="home">${ICONS.home}<span>Home</span></a>
-      <p class="nav-group">Cards</p>
-      ${GAMES.filter((g) => g.group === "cards").map(navItem).join("")}
-      <p class="nav-group">Puzzles</p>
-      ${GAMES.filter((g) => g.group === "puzzles").map(navItem).join("")}
-      <p class="nav-group">Arcade</p>
-      ${GAMES.filter((g) => g.group === "arcade").map(navItem).join("")}
+      ${GROUPS.map((grp) => {
+        const games = GAMES.filter((g) => g.group === grp.id);
+        return games.length ? `<p class="nav-group">${grp.name}</p>${games.map(navItem).join("")}` : "";
+      }).join("")}
       <div class="rail-foot">
         <div class="update-slot" aria-live="polite"></div>
         <a class="nav-item" href="#/stats" data-route="stats">${ICONS.stats}<span>Stats</span></a>
@@ -57,8 +55,14 @@ app.innerHTML = `
     <main class="stage" id="stage"></main>
   </div>`;
 
+function gameIcon(g: GameModule) {
+  if (g.iconSvg)
+    return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${g.iconSvg}</svg>`;
+  return GAME_ICONS[g.id] ?? "";
+}
+
 function navItem(g: GameModule) {
-  return `<a class="nav-item" href="#/play/${g.id}" data-route="play/${g.id}">${GAME_ICONS[g.id] ?? ""}<span>${g.name}</span></a>`;
+  return `<a class="nav-item" href="#/play/${g.id}" data-route="play/${g.id}">${gameIcon(g)}<span>${g.name}</span></a>`;
 }
 
 const stage = document.getElementById("stage")!;
@@ -135,7 +139,7 @@ function showHome() {
   const resume = savedGames();
   const tile = (g: GameModule) => `
     <a class="tile" href="#/play/${g.id}">
-      <div class="tile-art">${gameArt(g.art)}</div>
+      <div class="tile-art">${g.artSvg ? `<svg class="art" viewBox="0 0 252 144" aria-hidden="true">${g.artSvg}</svg>` : gameArt(g.art)}</div>
       <div class="tile-body">
         <h3>${g.name}</h3>
         <p>${g.blurb}</p>
@@ -153,23 +157,17 @@ function showHome() {
           ? `<section class="resume" aria-label="Games in progress">
               <h2>Pick up where you left off</h2>
               <div class="resume-row">${resume
-                .map((g) => `<a class="chip" href="#/play/${g.id}">${GAME_ICONS[g.id]}<span>${g.name}</span></a>`)
+                .map((g) => `<a class="chip" href="#/play/${g.id}">${gameIcon(g)}<span>${g.name}</span></a>`)
                 .join("")}</div>
             </section>`
           : ""
       }
-      <section aria-label="Card games">
-        <h2>Cards</h2>
-        <div class="tiles">${GAMES.filter((g) => g.group === "cards").map(tile).join("")}</div>
-      </section>
-      <section aria-label="Puzzles">
-        <h2>Puzzles</h2>
-        <div class="tiles">${GAMES.filter((g) => g.group === "puzzles").map(tile).join("")}</div>
-      </section>
-      <section aria-label="Arcade">
-        <h2>Arcade</h2>
-        <div class="tiles">${GAMES.filter((g) => g.group === "arcade").map(tile).join("")}</div>
-      </section>
+      ${GROUPS.map((grp) => {
+        const games = GAMES.filter((g) => g.group === grp.id);
+        return games.length
+          ? `<section aria-label="${grp.name}"><h2>${grp.name}</h2><div class="tiles">${games.map(tile).join("")}</div></section>`
+          : "";
+      }).join("")}
     </div>`;
 }
 
