@@ -47,8 +47,8 @@
 .ws-cell {
   display: grid;
   place-items: center;
-  font-family: var(--display);
-  font-weight: 650;
+  font-family: var(--letters);
+  font-weight: 700;
   font-size: calc(var(--ws) * 0.5);
   text-transform: uppercase;
   color: var(--ink);
@@ -80,7 +80,7 @@
 .ws-list li {
   position: relative;
   width: fit-content;
-  font-family: var(--display);
+  font-family: var(--letters);
   font-size: 17px;
   font-weight: 600;
   text-transform: capitalize;

@@ -39,7 +39,7 @@
   box-shadow: inset 0 0 0 2px var(--board-line);
   display: grid;
   place-items: center;
-  font-family: var(--display);
+  font-family: var(--letters);
   font-size: calc(var(--wt) * 0.52);
   font-weight: 750;
   text-transform: uppercase;
