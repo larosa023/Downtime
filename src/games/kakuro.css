@@ -1,0 +1,196 @@
+.kakuro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+}
+.kakuro.wide {
+  flex-direction: row;
+  gap: 32px;
+}
+.kk-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--k));
+  grid-template-rows: repeat(var(--rows), var(--k));
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--ink) 30%, var(--board));
+  box-shadow: var(--shadow-lift);
+}
+.kk-block,
+.kk-clue {
+  position: relative;
+  background: color-mix(in oklab, var(--ink) 78%, var(--board));
+  border-radius: 3px;
+}
+.kk-block {
+  background: color-mix(in oklab, var(--ink) 62%, var(--board));
+}
+.kk-clue svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.kk-clue line {
+  stroke: color-mix(in oklab, var(--board) 45%, transparent);
+  stroke-width: 0.25;
+}
+.kk-a,
+.kk-d {
+  position: absolute;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: calc(var(--k) * 0.3);
+  line-height: 1;
+  color: var(--board);
+  transition: color 0.2s, opacity 0.2s;
+}
+.kk-a {
+  top: calc(var(--k) * 0.08);
+  right: calc(var(--k) * 0.09);
+}
+.kk-d {
+  bottom: calc(var(--k) * 0.08);
+  left: calc(var(--k) * 0.09);
+}
+.kk-a.active,
+.kk-d.active {
+  color: var(--accent);
+  filter: brightness(1.3);
+}
+.kk-a.done,
+.kk-d.done {
+  opacity: 0.45;
+}
+.kk-a.bad,
+.kk-d.bad {
+  color: var(--danger);
+  opacity: 1;
+}
+.kk-cell {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--board);
+  color: var(--accent-strong);
+  font-family: var(--display);
+  font-weight: 650;
+  font-size: calc(var(--k) * 0.56);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.12s;
+}
+.kk-cell.peer {
+  background: color-mix(in oklab, var(--accent) 12%, var(--board));
+}
+.kk-cell.sel {
+  background: color-mix(in oklab, var(--accent) 34%, var(--board));
+}
+.kk-cell.wrong {
+  color: var(--danger);
+}
+.kk-notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 90%;
+  height: 90%;
+  font-family: var(--ui);
+  font-size: calc(var(--k) * 0.2);
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1;
+}
+.kk-notes i {
+  font-style: normal;
+  display: grid;
+  place-items: center;
+}
+.kk-grid .intro {
+  animation: kk-in 0.32s var(--ease) both;
+}
+@keyframes kk-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+.kk-grid.solved .kk-cell {
+  background: color-mix(in oklab, var(--accent) 22%, var(--board));
+  transition: background-color 0.6s;
+}
+
+.kk-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: calc(var(--k) * var(--cols));
+  max-width: 560px;
+}
+.kakuro.wide .kk-side {
+  width: 216px;
+}
+.kk-pad {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr) auto auto;
+  gap: 6px;
+}
+.kakuro.wide .kk-pad {
+  grid-template-columns: repeat(3, 64px);
+  gap: 8px;
+}
+.kk-pad .sdk-key {
+  height: 46px;
+}
+.kakuro.wide .kk-pad .sdk-key {
+  height: 60px;
+}
+.kakuro.wide .kk-pad .sdk-tool {
+  grid-column: span 3;
+  height: 42px;
+}
+.kk-help {
+  min-height: 52px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.kk-help p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 4px;
+}
+.kk-help b {
+  color: var(--ink);
+  font-weight: 650;
+}
+.kk-help span {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kk-a-block {
+  fill: color-mix(in oklab, var(--ink) 70%, var(--board));
+}
+.kk-a-line {
+  stroke: color-mix(in oklab, var(--board) 50%, transparent);
+  stroke-width: 1;
+}
+.kk-a-clue {
+  font: 700 7.5px var(--display);
+  fill: var(--board);
+}
+.kk-a-cell {
+  fill: var(--board);
+}
+.kk-a-num {
+  font: 650 13px var(--display);
+  fill: var(--accent-strong);
+}

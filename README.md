@@ -5,18 +5,25 @@
 
 ## Games
 
-| Cards | Puzzles | Arcade |
-| --- | --- | --- |
-| **Spider** — 1, 2 or 4 suits | **Mahjong** — always solvable | **Snake** — three speeds, walls or wrap-around |
-| **FreeCell** | **Minesweeper** — easy, medium, hard | **Blocks** — falling-block puzzle with hold and ghost piece |
-| **TriPeaks** | **Sudoku** — easy, medium, hard | **Breakout** — levels that get faster |
-| **Pyramid** | **Nonograms** — 5×5, 10×10, 15×15 | **Connect Four** — against the computer |
-| **Golf** | **2048** | |
-| | **Memory** — 8, 12 or 18 pairs | |
+31 games in five groups.
 
-Every game has smooth animations, a timer or score, and personal bests. The card games, Mahjong, Sudoku, Nonograms and 2048 have undo, and games in progress are saved when you leave, so you can pick up where you left off.
+| Group | Games |
+| --- | --- |
+| **Cards** | Spider (1, 2 or 4 suits), FreeCell, TriPeaks, Pyramid, Golf, Yukon, Scorpion, Forty Thieves, Canfield |
+| **Puzzles** | Mahjong, Minesweeper, Sudoku, Kakuro, Nonograms, 2048, Fifteen, Lights Out, Pipes, Memory |
+| **Words** | Word Guess, Word Search |
+| **Board games** | Chess, Checkers, Reversi, Connect Four — each against the computer on three levels |
+| **Arcade** | Snake, Blocks, Breakout, Pong, Rocks, Flapper |
 
-**Themes:** Paper, Slate, Felt, Midnight and Ember, plus three card backs. Switch from the dots at the bottom of the sidebar or in Settings.
+**Daily puzzles:** Sudoku, Nonograms, Mahjong and Word Guess each have a daily puzzle that's the same for everyone. The **Today** page tracks your streak on a calendar.
+
+**Trophies:** 46 achievements, from your first win to beating the computer at chess on Hard.
+
+**Card games** have Hint (or press H) and a Finish button that plays out the rest once every card is face up. The card games, puzzles and board games have undo, and most games save progress when you leave.
+
+**Make it yours:** 8 themes (Paper, Mint, Slate, Felt, Midnight, Ember, Dusk, High contrast), a custom accent color, 5 card backs, a four-color deck, large-print cards, favorites, a compact sidebar, and volume with per-sound toggles.
+
+**Mini player:** click the mini player button in a game's top bar (or press M) to shrink Downtime into a small window that stays on top of your other apps.
 
 ## Download
 
@@ -49,7 +56,15 @@ The installed version checks for updates when it starts and shows **Update avail
 | Blocks | ← → move, ↑ or X rotate, Z rotate back, ↓ soft drop, Space hard drop, C hold, P pause. |
 | Breakout | Mouse or ← →. Click or Space to launch. |
 | 2048 | Arrow keys or WASD, or swipe. |
-| Anywhere | **Ctrl+Z** undo, **F2** new game. |
+| Word Guess | Type a word and press Enter. |
+| Word Search | Drag across a word in any of 8 directions. |
+| Kakuro | Fill each run with different digits that add up to its clue. |
+| Pipes | Click to rotate a tile clockwise, right-click to rotate back. |
+| Chess, Checkers, Reversi | Click a piece, then a square. Chess also supports drag. |
+| Pong | Mouse, W/S or arrow keys. |
+| Rocks | Arrows or WASD to turn and thrust, Space to shoot. |
+| Flapper | Click or Space to flap. |
+| Anywhere | **Ctrl+Z** undo, **F2** new game, **M** mini player, **H** hint in card games. |
 
 ## Building it yourself
 

@@ -1,6 +1,6 @@
 {
   "name": "downtime",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Classic desk games, done cleanly.",
   "scripts": {
     "dev": "vite",

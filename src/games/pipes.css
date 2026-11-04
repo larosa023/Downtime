@@ -1,0 +1,94 @@
+.pipes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.pp-board {
+  width: var(--bsz);
+  height: var(--bsz);
+  border-radius: calc(var(--bsz) * 0.03);
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+  padding: calc(var(--bsz) * 0.015);
+  touch-action: manipulation;
+  overflow: visible;
+}
+.pp-cell {
+  fill: var(--board);
+}
+.pp-tile {
+  cursor: pointer;
+  transition: transform 0.18s var(--ease);
+}
+.pp-hit {
+  fill: transparent;
+}
+.pp-pipe {
+  stroke: color-mix(in oklab, var(--ink) 38%, var(--board));
+  stroke-width: 0.2;
+  stroke-linecap: round;
+  transition: stroke 0.2s;
+}
+.pp-joint {
+  fill: color-mix(in oklab, var(--ink) 38%, var(--board));
+  transition: fill 0.2s;
+}
+.pp-end {
+  fill: var(--board);
+  stroke: color-mix(in oklab, var(--ink) 38%, var(--board));
+  stroke-width: 0.09;
+  transition: stroke 0.2s, fill 0.2s;
+}
+.pp-source {
+  fill: var(--accent);
+  stroke: var(--accent-strong);
+  stroke-width: 0.06;
+}
+.pp-tile.lit .pp-pipe {
+  stroke: var(--accent);
+}
+.pp-tile.lit .pp-joint {
+  fill: var(--accent);
+}
+.pp-tile.lit .pp-end {
+  stroke: var(--accent);
+  fill: color-mix(in oklab, var(--accent) 35%, var(--board));
+}
+.pp-tile:hover .pp-pipe {
+  stroke-width: 0.23;
+}
+.pp-tile.intro {
+  animation: pp-in 0.35s var(--ease) both;
+}
+@keyframes pp-in {
+  from {
+    opacity: 0;
+  }
+}
+.pp-board.solved .pp-tile {
+  cursor: default;
+}
+.pp-board.solved .pp-end {
+  fill: var(--accent);
+}
+
+.pp-a-cell {
+  fill: color-mix(in oklab, var(--ink) 7%, transparent);
+}
+.pp-a-lit,
+.pp-a-off {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pp-a-lit {
+  stroke: var(--accent);
+}
+.pp-a-off {
+  stroke: color-mix(in oklab, var(--ink) 30%, transparent);
+}
+.pp-a-src {
+  fill: var(--accent-strong);
+}

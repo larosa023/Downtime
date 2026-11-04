@@ -1,0 +1,81 @@
+.fifteen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.ff-board {
+  --gap: calc(var(--bsz) * 0.022);
+  --tile: calc((var(--bsz) - var(--gap) * (var(--n) + 1)) / var(--n));
+  position: relative;
+  width: var(--bsz);
+  height: var(--bsz);
+  border-radius: calc(var(--bsz) * 0.035);
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.ff-tile {
+  position: absolute;
+  left: var(--gap);
+  top: var(--gap);
+  width: var(--tile);
+  height: var(--tile);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--tile) * 0.14);
+  /* Each home row gets a slightly different tint. */
+  background: color-mix(in oklab, var(--accent) calc(10% + var(--row) * 7%), var(--surface));
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 750;
+  font-size: calc(var(--tile) * 0.42);
+  letter-spacing: -0.03em;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transform: translate(calc(var(--c) * (var(--tile) + var(--gap))), calc(var(--r) * (var(--tile) + var(--gap))));
+  transition: transform 0.12s var(--ease), background-color 0.25s;
+  animation: ff-in 0.3s var(--ease) both;
+}
+.ff-tile.no-intro {
+  animation: none;
+}
+.ff-tile:hover {
+  filter: brightness(1.05);
+}
+.ff-tile.home {
+  box-shadow: inset 0 -3px 0 color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow);
+}
+.ff-tile.nudge {
+  animation: ff-nudge 0.28s;
+}
+@keyframes ff-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@keyframes ff-nudge {
+  30% {
+    scale: 0.94;
+  }
+}
+.ff-board.solved .ff-tile {
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition: background-color 0.5s, color 0.5s;
+}
+
+.sl-a-board {
+  fill: color-mix(in oklab, var(--ink) 8%, transparent);
+}
+.sl-a-tile {
+  fill: color-mix(in oklab, var(--accent) 18%, var(--surface));
+}
+.sl-a-tile.home {
+  fill: color-mix(in oklab, var(--accent) 40%, var(--surface));
+}
+.sl-a-num {
+  font: 750 13px var(--display);
+  text-anchor: middle;
+  fill: var(--ink);
+}
