@@ -2,6 +2,7 @@
 // In a plain browser it just switches to the compact layout.
 
 import { load, save } from "./storage";
+import { getSettings } from "./settings";
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -40,7 +41,8 @@ export async function setMini(next: boolean): Promise<void> {
       const factor = await win.scaleFactor();
       const size = (await win.innerSize()).toLogical(factor);
       save("mini-size", { w: Math.round(size.width), h: Math.round(size.height) });
-      await win.setAlwaysOnTop(false);
+      // Back to whatever the player chose in Settings.
+      await win.setAlwaysOnTop(getSettings().alwaysOnTop);
       await win.setMinSize(new LogicalSize(900, 620));
       if (restore) await win.setSize(new LogicalSize(Math.max(900, restore.w), Math.max(620, restore.h)));
     }

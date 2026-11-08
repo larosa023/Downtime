@@ -12,12 +12,15 @@ export type UpdateState =
   | { kind: "available"; version: string; notes?: string }
   | { kind: "downloading"; version: string; progress: number }
   | { kind: "installing"; version: string }
+  /** Downloaded in the background (auto updates); installs on restart. */
+  | { kind: "ready"; version: string; notes?: string }
   | { kind: "error"; message: string };
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 let state: UpdateState = isTauri() ? { kind: "idle" } : { kind: "unsupported" };
 let pending: Update | null = null;
+let downloaded = false;
 let version = "";
 const listeners = new Set<(s: UpdateState) => void>();
 
@@ -50,7 +53,10 @@ export async function checkForUpdate(quiet = false): Promise<void> {
     const update = await check();
     if (update) {
       pending = update;
+      downloaded = false;
       set({ kind: "available", version: update.version, notes: update.body ?? undefined });
+      const { getSettings } = await import("./settings");
+      if (getSettings().updates === "auto") void downloadInBackground();
     } else {
       set({ kind: "current", checkedAt: Date.now() });
     }
@@ -62,8 +68,35 @@ export async function checkForUpdate(quiet = false): Promise<void> {
   }
 }
 
+/** Fetch the update now so it can install the moment the player restarts. */
+async function downloadInBackground(): Promise<void> {
+  if (!pending) return;
+  const u = pending;
+  try {
+    await u.download();
+    if (pending !== u) return;
+    downloaded = true;
+    set({ kind: "ready", version: u.version, notes: u.body ?? undefined });
+  } catch (e) {
+    // Leave it as "available"; the player can still install by hand.
+    console.warn("background update download failed", e);
+  }
+}
+
 export async function installUpdate(): Promise<void> {
   if (!pending) return;
+  if (downloaded) {
+    try {
+      set({ kind: "installing", version: pending.version });
+      await pending.install();
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+    } catch (e) {
+      console.warn("update install failed", e);
+      set({ kind: "error", message: "The update didn't finish installing. Try again, or download it from the Releases page." });
+    }
+    return;
+  }
   const v = pending.version;
   let total = 0;
   let got = 0;
