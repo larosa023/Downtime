@@ -28,3 +28,28 @@ export function remove(key: string): void {
     /* ignore */
   }
 }
+
+/** Every saved key and value, for backups. */
+export function exportAll(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!;
+      if (k.startsWith(PREFIX)) out[k.slice(PREFIX.length)] = JSON.parse(localStorage.getItem(k)!);
+    }
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+/** Replace saved data with a backup made by exportAll. */
+export function importAll(data: Record<string, unknown>): void {
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)!;
+    if (k.startsWith(PREFIX)) keys.push(k);
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
+  for (const [k, v] of Object.entries(data)) save(k, v);
+}

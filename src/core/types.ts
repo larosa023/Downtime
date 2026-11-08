@@ -43,6 +43,11 @@ export interface GameInstance {
   requestHint?(): void;
   /** Play out the rest of the game automatically (see GameContext.setFinish). */
   autoFinish?(): void;
+  /** Freeze or resume the game: clocks, animation loops and input. The shell draws its own pause overlay
+   *  and calls this when the player pauses, or when the window loses focus (Settings → Auto-pause). */
+  setPaused?(paused: boolean): void;
+  /** True while a game is under way (moves made, not finished). Used to ask before starting a new one. */
+  inProgress?(): boolean;
   /** Persist anything worth resuming before the game is torn down. */
   destroy(): void;
 }
@@ -75,5 +80,10 @@ export interface GameModule {
   statsKey(option: (key: string) => string): string;
   /** Whether the game supports Undo. */
   hasUndo: boolean;
-  create(root: HTMLElement, ctx: GameContext): GameInstance;
+  /** Builds the game. Use either create (code ships with the app shell) or load (code in its own chunk,
+   *  fetched the first time the game opens — keeps startup fast). */
+  create?(root: HTMLElement, ctx: GameContext): GameInstance;
+  load?: () => Promise<{ create(root: HTMLElement, ctx: GameContext): GameInstance }>;
+  /** Extra keyboard shortcuts shown in the shortcuts sheet, e.g. [["Space", "Hard drop"]]. */
+  keys?: [string, string][];
 }

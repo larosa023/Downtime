@@ -10,7 +10,23 @@ export interface GameStats {
   /** Highest score (Snake, 2048). */
   bestScore?: number;
   lastPlayed?: number;
+  /** Seconds spent in this game (counted by the shell while the game is on screen). */
+  timePlayed?: number;
+  /** Most recent results, newest last (capped at HISTORY). */
+  history?: ResultEntry[];
 }
+
+export interface ResultEntry {
+  /** When it finished (ms since epoch). */
+  at: number;
+  /** true won, false lost, null for score-only games. */
+  won: boolean | null;
+  /** Seconds taken, when the game tracks time. */
+  time?: number;
+  score?: number;
+}
+
+const HISTORY = 40;
 
 type AllStats = Record<string, GameStats>;
 
@@ -53,9 +69,20 @@ export function recordStart(key: string) {
   });
 }
 
+function pushHistory(s: GameStats, e: ResultEntry) {
+  const h = s.history ? [...s.history] : [];
+  const last = h[h.length - 1];
+  // A game that reports both a win and a score lands as one entry.
+  if (last && e.at - last.at < 3000) {
+    h[h.length - 1] = { ...last, ...e, won: e.won ?? last.won, time: e.time ?? last.time, score: e.score ?? last.score };
+  } else h.push(e);
+  s.history = h.slice(-HISTORY);
+}
+
 export function recordWin(key: string, seconds?: number): { newBestTime: boolean } {
   let newBestTime = false;
   edit(key, (s) => {
+    pushHistory(s, { at: Date.now(), won: true, time: seconds != null ? Math.round(seconds) : undefined });
     s.won += 1;
     s.streak += 1;
     s.bestStreak = Math.max(s.bestStreak, s.streak);
@@ -69,6 +96,7 @@ export function recordWin(key: string, seconds?: number): { newBestTime: boolean
 
 export function recordLoss(key: string) {
   edit(key, (s) => {
+    pushHistory(s, { at: Date.now(), won: false });
     s.streak = 0;
   });
 }
@@ -76,6 +104,7 @@ export function recordLoss(key: string) {
 export function recordScore(key: string, score: number): { newBest: boolean } {
   let newBest = false;
   edit(key, (s) => {
+    pushHistory(s, { at: Date.now(), won: null, score });
     if (s.bestScore == null || score > s.bestScore) {
       s.bestScore = score;
       newBest = score > 0;
@@ -84,8 +113,25 @@ export function recordScore(key: string, score: number): { newBest: boolean } {
   return { newBest };
 }
 
-export function resetStats() {
-  all = {};
+/** Add seconds of play time without touching lastPlayed or notifying listeners every second. */
+export function addPlayTime(key: string, seconds: number) {
+  if (seconds <= 0) return;
+  const s = { ...getStats(key) };
+  s.timePlayed = (s.timePlayed ?? 0) + seconds;
+  all = { ...all, [key]: s };
+  save("stats", all);
+}
+
+export function resetStats(prefix?: string) {
+  if (prefix) {
+    all = Object.fromEntries(Object.entries(all).filter(([k]) => k !== prefix && !k.startsWith(prefix + ":")));
+  } else all = {};
+  persist();
+}
+
+/** Reload from storage (after importing a backup). */
+export function reloadStats() {
+  all = load<AllStats>("stats", {});
   persist();
 }
 

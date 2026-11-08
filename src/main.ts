@@ -445,13 +445,23 @@ function showGame(game: GameModule) {
     },
   };
 
-  const mount = () => {
+  let mountSeq = 0;
+  const mount = async () => {
+    const seq = ++mountSeq;
     board.innerHTML = "";
     finishBtn.hidden = true;
-    current = { game, instance: game.create(board, ctx) };
+    let create = game.create;
+    if (!create && game.load) {
+      board.classList.add("loading");
+      create = (await game.load()).create;
+      board.classList.remove("loading");
+      // The player may have left or changed options while the chunk loaded.
+      if (seq !== mountSeq || !board.isConnected) return;
+    }
+    current = { game, instance: create!(board, ctx) };
     hintBtn.hidden = typeof current.instance.requestHint !== "function";
   };
-  mount();
+  void mount();
 
   stage.querySelector(".play")!.addEventListener("click", (e) => {
     const act = (e.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
@@ -474,8 +484,9 @@ function showGame(game: GameModule) {
       setGameOption(game.id, sel.dataset.opt!, sel.value);
       sel.blur();
       current?.instance.destroy();
+      current = null;
       ctx.clearEnd();
-      mount();
+      void mount();
     }),
   );
 
