@@ -15,13 +15,21 @@
 | **Board games** | Chess, Checkers, Reversi, Connect Four — each against the computer on three levels |
 | **Arcade** | Snake, Blocks, Breakout, Pong, Rocks, Flapper |
 
-**Daily puzzles:** Sudoku, Nonograms, Mahjong and Word Guess each have a daily puzzle that's the same for everyone. The **Today** page tracks your streak on a calendar.
+**Daily puzzles:** FreeCell, Sudoku, Nonograms, Mahjong and Word Guess each have a daily puzzle that's the same for everyone. The **Today** page tracks your streak on a calendar.
 
-**Trophies:** 46 achievements, from your first win to beating the computer at chess on Hard.
+**Trophies:** 57 achievements, from your first win to beating the computer at chess on Hard.
 
 **Card games** have Hint (or press H) and a Finish button that plays out the rest once every card is face up. The card games, puzzles and board games have undo, and most games save progress when you leave.
 
-**Make it yours:** 8 themes (Paper, Mint, Slate, Felt, Midnight, Ember, Dusk, High contrast), a custom accent color, 5 card backs, a four-color deck, large-print cards, favorites, a compact sidebar, and volume with per-sound toggles.
+**Make it yours:** 8 themes plus a Custom theme you build from five colors, a custom accent, three fonts, corner style, table textures (grain, felt, dots), a size slider (80–150%), animation speed, 5 card backs, three card faces, a four-color deck, large-print cards, auto-move and click-to-move choices, favorites, a compact sidebar, and volume with per-sound toggles. Battery saver caps arcade games at 30 fps and turns off heavy effects.
+
+**Quick search:** press **Ctrl+K** to jump to any game, page, setting or action.
+
+**Pause:** press **P** (or the pause button). Downtime can also pause by itself when you switch to another window.
+
+**Stats:** totals, time played, and a chart of your recent results for every game and mode.
+
+**Backups:** save all your stats, trophies, settings and games in progress to a file, and restore them on another PC.
 
 **Mini player:** click the mini player button in a game's top bar (or press M) to shrink Downtime into a small window that stays on top of your other apps.
 
@@ -32,11 +40,11 @@ Grab the latest build from [Releases](../../releases):
 - **Downtime-portable.exe** — no install, just run it.
 - **Downtime_x.y.z_x64-setup.exe** — installs with a Start menu shortcut.
 
-Downtime needs Microsoft Edge WebView2, which comes with Windows 10 and 11.
+Downtime needs Microsoft Edge WebView2, which comes with Windows 10 and 11. It remembers its window size and position, and opening it a second time brings the running window forward.
 
 ### Updates
 
-The installed version checks for updates when it starts and shows **Update available** in the sidebar. Click it and Downtime downloads, installs and restarts. You can also check from **Settings → Updates**. The portable .exe doesn't update itself; download the new one from Releases.
+The installed version checks for updates when it starts and shows **Update available** in the sidebar. In **Settings → Updates** you can have it install updates automatically, ask first, or not check at all. Click it and Downtime downloads, installs and restarts. You can also check from **Settings → Updates**. The portable .exe doesn't update itself; download the new one from Releases.
 
 ## Controls
 
@@ -64,7 +72,7 @@ The installed version checks for updates when it starts and shows **Update avail
 | Pong | Mouse, W/S or arrow keys. |
 | Rocks | Arrows or WASD to turn and thrust, Space to shoot. |
 | Flapper | Click or Space to flap. |
-| Anywhere | **Ctrl+Z** undo, **F2** new game, **M** mini player, **H** hint in card games. |
+| Anywhere | **Ctrl+K** search, **Ctrl+Z** undo, **F2** new game, **P** pause, **M** mini player, **H** hint, **F11** full screen, **?** all shortcuts. |
 
 ## Building it yourself
 
@@ -97,13 +105,14 @@ Updates are signed so the app only installs builds made by this repo's workflow.
 src/
   core/      settings, stats, sound, timer, storage
   cards/     card engine shared by the solitaire games
-  games/     one file per game
-  ui/        home-screen art and icons
+  games/     one small file per game (name, options, art), with the game itself in games/impl/,
+             loaded the first time you open it
+  ui/        pages, command palette, home-screen art and icons
   styles/    themes and layout
 src-tauri/   the Windows app wrapper (Tauri 2)
 ```
 
-Adding a game means writing one module in `src/games/` that exports a `GameModule` and listing it in `src/games/index.ts`.
+Adding a game means writing one module in `src/games/` that exports a `GameModule` (with `load: () => import("./impl/<id>")`) and the game in `src/games/impl/<id>.ts`. It's picked up automatically; add its id to the order list in `src/games/index.ts`.
 
 ## License
 

@@ -11,11 +11,18 @@ export function variantLabel(key: string): { game: string; variant: string } {
   const name = g?.name ?? id;
   const labels: Record<string, string> = {
     "1suit": "1 suit", "2suit": "2 suits", "4suit": "4 suits",
-    easy: "Easy", medium: "Medium", hard: "Hard", relaxed: "Relaxed", normal: "Normal", fast: "Fast",
-    small: "Small", large: "Large", daily: "Daily", practice: "Practice",
-    walls: "walls", wrap: "wrap", std: "",
+    walls: "walls", wrap: "wrap", std: "", daily: "Daily",
   };
-  return { game: name, variant: rest.map((r) => labels[r] ?? r).filter(Boolean).join(", ") };
+  // Otherwise use the label of the option choice with that value (e.g. "fortress" → "Fortress").
+  const fromOptions = (v: string) => {
+    if (/^to\d+$/.test(v)) return `first to ${v.slice(2)}`;
+    for (const o of g?.options ?? []) {
+      const c = o.choices.find((c) => c.value === v);
+      if (c) return c.label;
+    }
+    return v;
+  };
+  return { game: name, variant: rest.map((r) => labels[r] ?? fromOptions(r)).filter(Boolean).join(", ") };
 }
 
 let groupFilter = "all";

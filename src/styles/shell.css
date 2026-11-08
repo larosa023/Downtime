@@ -333,6 +333,20 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  container: play / inline-size;
+}
+/* Keep the top bar on one row: drop button labels (icons keep their tooltips) when space runs short. */
+@container play (max-width: 1180px) {
+  .bar .actions .btn.ghost > span { display: none; }
+  .bar .actions .btn.ghost { padding-inline: 10px; }
+}
+@container play (max-width: 940px) {
+  .bar .actions .btn > span { display: none; }
+  .bar .actions .btn { padding-inline: 10px; }
+}
+@container play (max-width: 1300px) {
+  .bar.many-opts .actions .btn > span { display: none; }
+  .bar.many-opts .actions .btn { padding-inline: 10px; }
 }
 
 .bar {

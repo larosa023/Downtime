@@ -88,7 +88,7 @@ class Pipes implements GameInstance {
   private paused = false;
   /** Tiles the player has pinned in place (Ctrl+click or middle-click). */
   private locked = new Set<number>();
-  /** Fewest clockwise turns that would solve the board from the start. */
+  /** Fewest turns (either way) that would solve the board from the start. */
   private par = 0;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
@@ -130,7 +130,7 @@ class Pipes implements GameInstance {
     do {
       this.turns = this.base.map(() => Math.floor(Math.random() * 4));
     } while (this.isSolved());
-    this.par = this.base.reduce((sum, _, i) => sum + this.turnsToFix(i, 1), 0);
+    this.par = this.base.reduce((sum, _, i) => sum + Math.min(this.turnsToFix(i, 1), this.turnsToFix(i, -1)), 0);
     this.locked = new Set();
     this.moves = 0;
     this.over = false;

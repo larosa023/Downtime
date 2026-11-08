@@ -147,3 +147,27 @@ export function installAppFeel(): void {
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => e.preventDefault());
 }
+
+/** Open a web page in the default browser (a new tab in a plain browser). */
+export async function openExternal(url: string): Promise<void> {
+  if (!isTauri()) {
+    window.open(url, "_blank", "noopener");
+    return;
+  }
+  try {
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(url);
+  } catch (e) {
+    console.warn("couldn't open link", e);
+  }
+}
+
+// Any link to an outside site opens in the default browser instead of inside the app.
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const a = (e.target as HTMLElement | null)?.closest?.("a[href^='http']") as HTMLAnchorElement | null;
+    if (!a || !isTauri()) return;
+    e.preventDefault();
+    void openExternal(a.href);
+  });
+}

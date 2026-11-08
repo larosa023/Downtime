@@ -1,6 +1,6 @@
 {
   "name": "downtime",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Classic desk games, done cleanly.",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",
     "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.14.1"
   },

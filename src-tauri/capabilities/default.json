@@ -18,6 +18,14 @@
     "core:window:allow-is-fullscreen",
     "core:window:allow-show",
     "core:webview:allow-set-webview-zoom",
-    "window-state:default"
+    "window-state:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://github.com/larosa023/*"
+        }
+      ]
+    }
   ]
 }

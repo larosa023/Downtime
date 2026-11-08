@@ -23,7 +23,7 @@ export function showGame(stage: HTMLElement, game: GameModule): GameView {
   const fav = () => getSettings().favorites.includes(game.id);
   stage.innerHTML = `
     <div class="play">
-      <header class="bar">
+      <header class="bar${(game.options?.length ?? 0) >= 3 ? " many-opts" : ""}">
         <h1>${game.name}</h1>
         <button class="icon-btn fav-btn${fav() ? " on" : ""}" data-act="fav" aria-pressed="${fav()}" title="Favorite">${fav() ? ICONS.starFilled : ICONS.star}</button>
         <div class="opts">
