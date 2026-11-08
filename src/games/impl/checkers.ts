@@ -1,7 +1,7 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
-import { getSettings, motionEnabled } from "../../core/settings";
+import { animScale, getSettings, motionEnabled } from "../../core/settings";
 
 // Board cells: 0 empty, 1 your man, 2 your king, 3 computer man, 4 computer king.
 // You start at the bottom and move up. Squares are r * 8 + c; dark squares have (r + c) odd.
@@ -527,7 +527,7 @@ class Checkers implements GameInstance {
         const hops = moving.path.slice(1);
         el.animate(
           [{ transform: el.style.transform }, ...hops.map((h) => ({ transform: `translate(${(h & 7) * 100}%, ${(h >> 3) * 100}%)` }))],
-          { duration: 170 * hops.length, easing: "ease-in-out" },
+          { duration: 170 * hops.length * animScale(), easing: "ease-in-out" },
         );
       }
       el.style.transform = `translate(${(at & 7) * 100}%, ${(at >> 3) * 100}%)`;
