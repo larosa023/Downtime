@@ -85,7 +85,7 @@
   font-weight: 600;
   text-transform: capitalize;
   color: var(--ink);
-  transition: color 0.2s;
+  transition: color calc(0.2s * var(--speed, 1));
 }
 .ws-list li::after {
   content: "";
@@ -99,7 +99,7 @@
   background: color-mix(in oklab, var(--hue) 42%, transparent);
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.35s var(--ease);
+  transition: transform calc(0.35s * var(--speed, 1)) var(--ease);
 }
 .ws-list li.found {
   color: var(--muted);
@@ -115,3 +115,11 @@
 .ws-a-m1 { stroke: color-mix(in oklab, var(--accent) 42%, transparent); }
 .ws-a-m2 { stroke: color-mix(in oklab, var(--n2) 42%, transparent); }
 .ws-a-m3 { stroke: color-mix(in oklab, var(--danger) 42%, transparent); }
+
+.ws-cell.hint {
+  animation: ws-hint calc(1.6s * var(--speed, 1)) var(--ease) 2;
+  border-radius: 50%;
+}
+@keyframes ws-hint {
+  30% { background: color-mix(in oklab, var(--accent) 45%, transparent); transform: scale(1.18); }
+}

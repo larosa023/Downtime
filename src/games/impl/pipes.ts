@@ -3,9 +3,9 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { animScale, getSettings, motionEnabled } from "../../core/settings";
 
-const SIZES: Record<string, number> = { small: 5, medium: 7, large: 9 };
+const SIZES: Record<string, number> = { small: 5, medium: 7, large: 9, huge: 11 };
 const SAVE = "save:pipes";
 // Bits for the four sides: up, right, down, left.
 const N_ = 1;
@@ -66,6 +66,8 @@ interface Saved {
   base: number[];
   turns: number[];
   moves: number;
+  locked?: number[];
+  par?: number;
   seconds: number;
   counted: boolean;
 }
@@ -83,6 +85,11 @@ class Pipes implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Tiles the player has pinned in place (Ctrl+click or middle-click). */
+  private locked = new Set<number>();
+  /** Fewest clockwise turns that would solve the board from the start. */
+  private par = 0;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.size = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
@@ -100,6 +107,8 @@ class Pipes implements GameInstance {
       this.base = saved.base;
       this.turns = saved.turns;
       this.moves = saved.moves;
+      this.locked = new Set(saved.locked ?? []);
+      this.par = saved.par ?? 0;
       this.counted = saved.counted;
       this.timer.reset(saved.seconds);
       this.build();
@@ -121,6 +130,8 @@ class Pipes implements GameInstance {
     do {
       this.turns = this.base.map(() => Math.floor(Math.random() * 4));
     } while (this.isSolved());
+    this.par = this.base.reduce((sum, _, i) => sum + this.turnsToFix(i, 1), 0);
+    this.locked = new Set();
     this.moves = 0;
     this.over = false;
     this.counted = false;
@@ -130,6 +141,39 @@ class Pipes implements GameInstance {
     this.build(true);
     this.persist();
     this.status();
+  }
+
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
+  /** Quarter turns in direction `dir` that bring tile i back to a solved orientation. */
+  private turnsToFix(i: number, dir: 1 | -1): number {
+    for (let k = 0; k < 4; k++) if (rot(this.base[i], this.turns[i] + dir * k) === this.base[i]) return k;
+    return 0;
+  }
+
+  /** Turn one out-of-place tile into position and pin it. */
+  requestHint() {
+    if (this.over || this.paused || !getSettings().hints) return;
+    const wrong = this.base.map((_, i) => i).filter((i) => this.turnsToFix(i, 1) > 0 && !this.locked.has(i));
+    if (!wrong.length) return this.ctx.toast("Every unpinned tile is already in place.");
+    // Prefer tiles touching the lit network, so the hint helps right where the player is.
+    const { lit } = this.trace();
+    const n = this.n;
+    const near = wrong.filter((i) => [i - n, i + n, i % n ? i - 1 : -1, (i + 1) % n ? i + 1 : -1].some((j) => lit.has(j)));
+    const pool = near.length ? near : wrong;
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    const k = this.turnsToFix(i, 1);
+    const back = this.turnsToFix(i, -1);
+    for (let t = 0; t < Math.min(k, back); t++) this.turn(i, k <= back ? 1 : -1, true);
+    this.locked.add(i);
+    this.paint();
+    this.persist();
   }
 
   destroy() {
@@ -147,7 +191,16 @@ class Pipes implements GameInstance {
 
   private persist() {
     if (this.over) return remove(SAVE);
-    const data: Saved = { n: this.n, base: this.base, turns: this.turns, moves: this.moves, seconds: this.timer.seconds, counted: this.counted };
+    const data: Saved = {
+      n: this.n,
+      base: this.base,
+      turns: this.turns,
+      moves: this.moves,
+      locked: [...this.locked],
+      par: this.par,
+      seconds: this.timer.seconds,
+      counted: this.counted,
+    };
     save(SAVE, data);
   }
 
@@ -232,28 +285,46 @@ class Pipes implements GameInstance {
       g.style.transform = `rotate(${this.turns[i] * 90}deg)`;
       if (intro && motionEnabled()) {
         g.classList.add("intro");
-        g.style.animationDelay = `${(r + c) * 22}ms`;
+        g.style.animationDelay = `${(r + c) * 22 * animScale()}ms`;
       }
       this.svg.appendChild(g);
       this.tileEls.push(g);
     }
     this.svg.addEventListener("pointerdown", (e) => {
       const g = (e.target as Element).closest<SVGGElement>(".pp-tile");
-      if (!g) return;
+      if (!g || this.paused) return;
       e.preventDefault();
-      this.turn(Number(g.dataset.i), e.button === 2 || e.shiftKey ? -1 : 1);
+      const i = Number(g.dataset.i);
+      if (e.button === 1 || e.ctrlKey || e.metaKey) return this.toggleLock(i);
+      if (this.locked.has(i)) {
+        sfx.error();
+        return;
+      }
+      this.turn(i, e.button === 2 || e.shiftKey ? -1 : 1);
     });
     this.resize();
     this.paint();
   }
 
+  private toggleLock(i: number) {
+    if (this.over) return;
+    if (this.locked.has(i)) this.locked.delete(i);
+    else this.locked.add(i);
+    sfx.flag();
+    this.paint();
+    this.persist();
+  }
+
   private paint() {
     const { lit } = this.trace();
-    this.tileEls.forEach((g, i) => g.classList.toggle("lit", lit.has(i)));
+    this.tileEls.forEach((g, i) => {
+      g.classList.toggle("lit", lit.has(i));
+      g.classList.toggle("locked", this.locked.has(i));
+    });
     this.svg.classList.toggle("solved", this.over);
   }
 
-  private turn(i: number, dir: 1 | -1) {
+  private turn(i: number, dir: 1 | -1, quiet = false) {
     if (this.over) return;
     // Keep counting past 360° so the CSS transition always spins the short way.
     this.turns[i] += dir;
@@ -264,7 +335,7 @@ class Pipes implements GameInstance {
       recordStart(this.key);
     }
     this.timer.start();
-    sfx.tick();
+    if (!quiet) sfx.tick();
     this.paint();
     this.status();
     if (this.isSolved()) this.win();
@@ -276,6 +347,10 @@ class Pipes implements GameInstance {
     this.timer.stop();
     const secs = Math.round(this.timer.seconds);
     const { newBestTime } = recordWin(this.key, secs);
+    const bestKey = `best:${this.key}`;
+    const prev = load<number | null>(bestKey, null);
+    const newBestTurns = prev == null || this.moves < prev;
+    if (newBestTurns) save(bestKey, this.moves);
     remove(SAVE);
     sfx.win();
     this.paint();
@@ -285,7 +360,10 @@ class Pipes implements GameInstance {
         this.ctx.end({
           won: true,
           title: "All connected",
-          lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, `${this.moves} turns`],
+          lines: [
+            `${formatTime(secs)}${newBestTime ? " — a new best" : ""}`,
+            `${this.moves} turns${this.par ? ` (par ${this.par})` : ""}${newBestTurns && prev != null ? " — fewest yet" : ""}`,
+          ],
         }),
       700,
     );
@@ -295,7 +373,7 @@ class Pipes implements GameInstance {
     const { lit } = this.base.length ? this.trace() : { lit: new Set() };
     this.ctx.setStatus([
       { label: "Connected", value: `${lit.size}/${this.n * this.n}` },
-      { label: "Turns", value: String(this.moves) },
+      { label: "Turns", value: this.par ? `${this.moves}/${this.par}` : String(this.moves) },
       { label: "Time", value: formatTime(this.timer.seconds) },
     ]);
   }

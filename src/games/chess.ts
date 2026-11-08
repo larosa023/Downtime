@@ -22,8 +22,22 @@ export const chess: GameModule = {
         { value: "hard", label: "Hard" },
       ],
     },
+    {
+      key: "dots",
+      label: "Legal moves",
+      default: "on",
+      choices: [
+        { value: "on", label: "Show legal moves" },
+        { value: "off", label: "Hide legal moves" },
+      ],
+    },
   ],
   statsKey: (o) => `chess:${o("level")}`,
+  keys: [
+    ["Click or drag", "Move a piece"],
+    ["Esc", "Cancel a selection"],
+    ["Ctrl+Z", "Take back your last move"],
+  ],
   iconSvg: `<path d="M9 20h10"/><path d="M10 20l1-6h6l1 6"/><path d="M11 14c-1-2-1-4.5 1-6.5l2-2.5 1 2c2 1 3 3.5 2 7"/><circle cx="13" cy="9" r=".6" fill="currentColor"/>`,
   artSvg: (() => {
     let s = `<rect x="70" y="10" width="112" height="112" rx="8" class="ch-art-light"/>`;

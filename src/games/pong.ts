@@ -4,7 +4,7 @@ export const pong: GameModule = {
   id: "pong",
   name: "Pong",
   group: "arcade",
-  blurb: "Bat the ball past the computer. First to 7 wins.",
+  blurb: "Bat the ball past the computer to score.",
   art: "pong",
   artSvg: `
     <rect x="12" y="10" width="228" height="124" rx="10" fill="var(--board)"/>
@@ -28,7 +28,23 @@ export const pong: GameModule = {
         { value: "hard", label: "Hard" },
       ],
     },
+    {
+      key: "to",
+      label: "Game length",
+      default: "7",
+      choices: [
+        { value: "3", label: "First to 3" },
+        { value: "5", label: "First to 5" },
+        { value: "7", label: "First to 7" },
+        { value: "11", label: "First to 11" },
+      ],
+    },
   ],
-  statsKey: (o) => `pong:${o("level")}`,
+  statsKey: (o) => (o("to") && o("to") !== "7" ? `pong:${o("level")}:to${o("to")}` : `pong:${o("level")}`),
+  keys: [
+    ["Mouse, W/S or ↑ ↓", "Move your paddle"],
+    ["Click or Space", "Serve"],
+    ["Space or Esc", "Pause"],
+  ],
   load: () => import("./impl/pong"),
 };

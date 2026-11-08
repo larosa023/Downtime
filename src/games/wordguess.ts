@@ -19,6 +19,21 @@ export const wordguess: GameModule = {
         { value: "practice", label: "Practice" },
       ],
     },
+    {
+      key: "rules",
+      label: "Rules",
+      default: "normal",
+      choices: [
+        { value: "normal", label: "Normal" },
+        { value: "hard", label: "Hard mode" },
+      ],
+    },
+  ],
+  keys: [
+    ["A–Z", "Type a letter"],
+    ["Enter", "Submit a guess"],
+    ["Backspace", "Delete a letter"],
+    ["C", "Copy your result (when done)"],
   ],
   statsKey: (o) => `wordguess:${o("mode")}`,
   iconSvg: `<rect x="3" y="8" width="5" height="8" rx="1.2"/><rect x="9.5" y="8" width="5" height="8" rx="1.2" fill="currentColor"/><rect x="16" y="8" width="5" height="8" rx="1.2"/>`,

@@ -10,6 +10,8 @@ import { RECYCLE_MARK } from "../marks";
 const up = (r: number) => (r % 13) + 1;
 
 class Canfield extends CardGame {
+  protected sendsOnTap = true;
+  protected usesAutoMove = true;
   private base = 1;
 
   constructor(root: HTMLElement, ctx: GameContext) {

@@ -40,6 +40,23 @@ export const kakuro: GameModule = {
         { value: "large", label: "Large" },
       ],
     },
+    {
+      key: "check",
+      label: "Mistakes",
+      default: "off",
+      choices: [
+        { value: "off", label: "Only show clashes" },
+        { value: "on", label: "Show wrong digits" },
+      ],
+    },
+  ],
+  keys: [
+    ["1–9", "Enter a digit"],
+    ["Arrow keys", "Move"],
+    ["N", "Notes on or off"],
+    ["F", "Fill in all notes"],
+    ["H", "Hint"],
+    ["Backspace", "Erase"],
   ],
   statsKey: (o) => `kakuro:${o("size")}`,
   load: () => import("./impl/kakuro"),

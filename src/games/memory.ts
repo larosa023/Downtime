@@ -16,6 +16,26 @@ export const memory: GameModule = {
         { value: "small", label: "8 pairs" },
         { value: "medium", label: "12 pairs" },
         { value: "large", label: "18 pairs" },
+        { value: "huge", label: "24 pairs" },
+      ],
+    },
+    {
+      key: "set",
+      label: "Symbols",
+      default: "shapes",
+      choices: [
+        { value: "shapes", label: "Shapes" },
+        { value: "letters", label: "Letters" },
+        { value: "numbers", label: "Numbers" },
+      ],
+    },
+    {
+      key: "peek",
+      label: "Peek",
+      default: "off",
+      choices: [
+        { value: "off", label: "No peek" },
+        { value: "on", label: "Peek at start" },
       ],
     },
   ],

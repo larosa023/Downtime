@@ -19,8 +19,21 @@ export const reversi: GameModule = {
         { value: "hard", label: "Hard" },
       ],
     },
+    {
+      key: "dots",
+      label: "Legal moves",
+      default: "on",
+      choices: [
+        { value: "on", label: "Show legal moves" },
+        { value: "off", label: "Hide legal moves" },
+      ],
+    },
   ],
   statsKey: (o) => `reversi:${o("level")}`,
+  keys: [
+    ["Click a square", "Place a disc"],
+    ["Ctrl+Z", "Take back your last move"],
+  ],
   iconSvg: `<rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><circle cx="9.5" cy="9.5" r="2.6" fill="currentColor"/><circle cx="14.5" cy="14.5" r="2.6" fill="currentColor"/><circle cx="14.5" cy="9.5" r="2.6"/><circle cx="9.5" cy="14.5" r="2.6"/>`,
   artSvg: (() => {
     let s = `<rect x="70" y="10" width="112" height="112" rx="8" class="rv-art-board"/>`;

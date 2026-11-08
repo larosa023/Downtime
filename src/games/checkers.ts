@@ -19,8 +19,23 @@ export const checkers: GameModule = {
         { value: "hard", label: "Hard" },
       ],
     },
+    {
+      key: "dots",
+      label: "Legal moves",
+      default: "on",
+      choices: [
+        { value: "on", label: "Show legal moves" },
+        { value: "off", label: "Hide legal moves" },
+      ],
+    },
   ],
   statsKey: (o) => `checkers:${o("level")}`,
+  keys: [
+    ["Click a piece, then a square", "Move"],
+    ["Click each landing square", "Multiple jumps"],
+    ["Esc", "Cancel a selection"],
+    ["Ctrl+Z", "Take back your last move"],
+  ],
   iconSvg: `<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4" fill="currentColor"/>`,
   artSvg: (() => {
     let s = `<rect x="70" y="10" width="112" height="112" rx="8" class="ck-art-light"/>`;

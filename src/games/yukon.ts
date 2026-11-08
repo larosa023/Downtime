@@ -17,5 +17,11 @@ export const yukon: GameModule = {
     ${[0, 1, 2, 3, 4].map((i) => [...Array(i)].map((_, k) => aBack(14 + i * 40, 8 + k * 8)).join("") + [0, 1, 2].map((k) => aCard(14 + i * 40, 8 + i * 8 + k * 18, (i + k) % 2 === 0, ["K", "Q", "J", "10", "9", "8", "7"][(i + k) % 7])).join("")).join("")}
     ${[0, 1, 2, 3].map((i) => `<rect class="a-slot" x="218" y="${10 + i * 32}" width="22" height="28" rx="3"/>`).join("")}`,
   iconSvg: `<path d="M4 4h5v5H4zM4 11h5v9H4z"/><path d="M12 4h8v16h-8"/><path d="M12 9h8M12 14h8"/>`,
+  keys: [
+    ["Click", "Send a card to the best spot"],
+    ["Double-click", "Send a card when click-to-move is off"],
+    ["Drag", "Move a card or run"],
+    ["H", "Hint"],
+  ],
   load: () => import("./impl/yukon"),
 };

@@ -19,7 +19,7 @@
 }
 .pp-tile {
   cursor: pointer;
-  transition: transform 0.18s var(--ease);
+  transition: transform calc(0.18s * var(--speed, 1)) var(--ease);
 }
 .pp-hit {
   fill: transparent;
@@ -28,17 +28,17 @@
   stroke: color-mix(in oklab, var(--ink) 38%, var(--board));
   stroke-width: 0.2;
   stroke-linecap: round;
-  transition: stroke 0.2s;
+  transition: stroke calc(0.2s * var(--speed, 1));
 }
 .pp-joint {
   fill: color-mix(in oklab, var(--ink) 38%, var(--board));
-  transition: fill 0.2s;
+  transition: fill calc(0.2s * var(--speed, 1));
 }
 .pp-end {
   fill: var(--board);
   stroke: color-mix(in oklab, var(--ink) 38%, var(--board));
   stroke-width: 0.09;
-  transition: stroke 0.2s, fill 0.2s;
+  transition: stroke calc(0.2s * var(--speed, 1)), fill calc(0.2s * var(--speed, 1));
 }
 .pp-source {
   fill: var(--accent);
@@ -59,7 +59,7 @@
   stroke-width: 0.23;
 }
 .pp-tile.intro {
-  animation: pp-in 0.35s var(--ease) both;
+  animation: pp-in calc(0.35s * var(--speed, 1)) var(--ease) both;
 }
 @keyframes pp-in {
   from {
@@ -91,4 +91,12 @@
 }
 .pp-a-src {
   fill: var(--accent-strong);
+}
+
+/* Pinned tiles */
+.pp-tile.locked .pp-hit {
+  fill: color-mix(in oklab, var(--ink) 9%, transparent);
+}
+.pp-tile.locked .pp-joint {
+  fill: var(--ink);
 }

@@ -6,6 +6,7 @@ import { sfx } from "../../core/sound";
 
 
 class Scorpion extends CardGame {
+  protected sendsOnTap = true;
   constructor(root: HTMLElement, ctx: GameContext) {
     super(root, ctx, "save:scorpion");
   }

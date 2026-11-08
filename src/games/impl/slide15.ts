@@ -3,8 +3,9 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
+import { animScale } from "../../core/settings";
 
-const SIZES: Record<string, number> = { small: 3, medium: 4, large: 5 };
+const SIZES: Record<string, number> = { small: 3, medium: 4, large: 5, huge: 6 };
 const SAVE = "save:slide15";
 
 interface Saved {
@@ -66,6 +67,8 @@ class Fifteen implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  private history: { tiles: number[]; moves: number }[] = [];
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
@@ -97,6 +100,7 @@ class Fifteen implements GameInstance {
     if (this.counted && !this.over) recordLoss(this.key);
     this.tiles = scramble(this.n);
     this.moves = 0;
+    this.history = [];
     this.over = false;
     this.counted = false;
     this.timer.reset();
@@ -105,6 +109,26 @@ class Fifteen implements GameInstance {
     this.build(true);
     this.persist();
     this.status();
+  }
+
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
+  undo() {
+    const h = this.history.pop();
+    if (!h || this.over) return;
+    this.tiles = h.tiles;
+    this.moves = h.moves;
+    sfx.flip();
+    this.paint();
+    this.status();
+    this.persist();
+    this.ctx.setUndo(this.history.length > 0);
   }
 
   destroy() {
@@ -128,7 +152,8 @@ class Fifteen implements GameInstance {
   }
 
   private build(intro = false) {
-    this.el.innerHTML = `<div class="ff-board" style="--n:${this.n}"></div>`;
+    const look = this.ctx.option("look") === "picture" ? " picture" : "";
+    this.el.innerHTML = `<div class="ff-board${look}" style="--n:${this.n}"></div>`;
     this.board = this.el.querySelector(".ff-board")!;
     this.tileEls.clear();
     for (let v = 1; v < this.n * this.n; v++) {
@@ -138,14 +163,17 @@ class Fifteen implements GameInstance {
       b.dataset.v = String(v);
       // Tiles whose home is on the same row share a tint, which helps when sorting.
       b.style.setProperty("--row", String(Math.floor((v - 1) / this.n)));
-      if (intro) b.style.animationDelay = `${v * 14}ms`;
+      // Picture mode: each tile shows its own slice of one big gradient.
+      b.style.setProperty("--hr", String(Math.floor((v - 1) / this.n)));
+      b.style.setProperty("--hc", String((v - 1) % this.n));
+      if (intro) b.style.animationDelay = `${v * 14 * animScale()}ms`;
       else b.classList.add("no-intro");
       this.board.appendChild(b);
       this.tileEls.set(v, b);
     }
     this.board.addEventListener("pointerdown", (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>(".ff-tile");
-      if (t) this.clickTile(Number(t.dataset.v));
+      if (t && !this.paused) this.clickTile(Number(t.dataset.v));
     });
     this.resize();
     this.paint();
@@ -162,7 +190,7 @@ class Fifteen implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || this.paused) return;
     const gap = this.tiles.indexOf(0);
     const r = Math.floor(gap / this.n);
     const c = gap % this.n;
@@ -199,6 +227,9 @@ class Fifteen implements GameInstance {
       return;
     }
     const step = sameRow ? (i > gap ? 1 : -1) : i > gap ? n : -n;
+    this.history.push({ tiles: this.tiles.slice(), moves: this.moves });
+    if (this.history.length > 500) this.history.shift();
+    this.ctx.setUndo(true);
     let g = gap;
     while (g !== i) {
       this.tiles[g] = this.tiles[g + step];
@@ -223,6 +254,10 @@ class Fifteen implements GameInstance {
     this.timer.stop();
     const secs = Math.round(this.timer.seconds);
     const { newBestTime } = recordWin(this.key, secs);
+    const bestKey = `best:${this.key}`;
+    const prev = load<number | null>(bestKey, null);
+    if (prev == null || this.moves < prev) save(bestKey, this.moves);
+    this.ctx.setUndo(false);
     remove(SAVE);
     sfx.win();
     this.board.classList.add("solved");
@@ -232,7 +267,10 @@ class Fifteen implements GameInstance {
         this.ctx.end({
           won: true,
           title: "Solved",
-          lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, `${this.moves} moves`],
+          lines: [
+            `${formatTime(secs)}${newBestTime ? " — a new best" : ""}`,
+            `${this.moves} moves${prev != null && this.moves < prev ? " — fewest yet" : prev != null ? ` (fewest ${prev})` : ""}`,
+          ],
         }),
       600,
     );
@@ -241,6 +279,10 @@ class Fifteen implements GameInstance {
   private status() {
     this.ctx.setStatus([
       { label: "Moves", value: String(this.moves) },
+      ...(() => {
+        const best = load<number | null>(`best:${this.key}`, null);
+        return best != null ? [{ label: "Fewest", value: String(best) }] : [];
+      })(),
       { label: "Time", value: formatTime(this.timer.seconds) },
     ]);
   }

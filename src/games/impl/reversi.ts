@@ -1,7 +1,7 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { getSettings, motionEnabled } from "../../core/settings";
 
 // 0 empty, 1 you (dark, moves first), 2 computer (light).
 type Side = 1 | 2;
@@ -106,10 +106,11 @@ const LEVELS: Record<string, { depth: number; ms: number; noise: number }> = {
   hard: { depth: 12, ms: 900, noise: 0 },
 };
 
-export function bestMove(board: number[], level: string): number {
+export function bestMove(board: number[], level: string, side: Side = 2): number {
   const l = LEVELS[level] ?? LEVELS.normal;
   const b = board.slice();
-  let moves = movesFor(b, 2);
+  const them = opp(side);
+  let moves = movesFor(b, side);
   if (!moves.length) return -1;
   if (moves.length === 1) return moves[0];
   const deadline = performance.now() + l.ms;
@@ -121,12 +122,12 @@ export function bestMove(board: number[], level: string): number {
     let alpha = -Infinity;
     let dBest = moves[0];
     for (const m of moves) {
-      const f = flipsFor(b, m, 2);
-      b[m] = 2;
-      for (const x of f) b[x] = 2;
-      const v = -search(b, 1, d - 1, -WIN * 2, l.noise ? WIN * 2 : -alpha, false, deadline, st);
+      const f = flipsFor(b, m, side);
+      b[m] = side;
+      for (const x of f) b[x] = side;
+      const v = -search(b, them, d - 1, -WIN * 2, l.noise ? WIN * 2 : -alpha, false, deadline, st);
       b[m] = 0;
-      for (const x of f) b[x] = 1;
+      for (const x of f) b[x] = them;
       if (st.stop) break;
       sc.set(m, v);
       if (v > alpha) {
@@ -172,10 +173,13 @@ class Reversi implements GameInstance {
   private aiTimer = 0;
   private endTimer = 0;
   private level: string;
+  private showMoves: boolean;
+  private hintTimer = 0;
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("level") in LEVELS ? ctx.option("level") : "normal";
+    this.showMoves = ctx.option("dots") !== "off";
     this.el = document.createElement("div");
     this.el.className = "reversi";
     const grid = document.createElement("div");
@@ -203,9 +207,31 @@ class Reversi implements GameInstance {
     return `reversi:${this.level}`;
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  requestHint() {
+    if (this.over || this.thinking || this.turn !== 1 || !getSettings().hints) return;
+    const moves = this.moves;
+    this.ctx.toast("Thinking…");
+    setTimeout(() => {
+      if (moves !== this.moves || this.over) return;
+      const m = bestMove(this.board, "hard", 1);
+      if (m >= 0) this.showHint(m);
+    }, 30);
+  }
+
+  private showHint(sq: number) {
+    clearTimeout(this.hintTimer);
+    this.cells.forEach((c, i) => c.classList.toggle("hint", i === sq));
+    if (sq >= 0) this.hintTimer = window.setTimeout(() => this.showHint(-1), 2600);
+  }
+
   newGame() {
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    this.showHint(-1);
     if (this.counted && !this.over) recordLoss(this.key);
     this.board = Array(64).fill(0);
     this.board[27] = 2;
@@ -230,6 +256,7 @@ class Reversi implements GameInstance {
     if (!s) return;
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    this.showHint(-1);
     this.thinking = false;
     this.board = s.board;
     this.last = s.last;
@@ -247,6 +274,7 @@ class Reversi implements GameInstance {
   destroy() {
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    clearTimeout(this.hintTimer);
     this.resizeObs.disconnect();
     this.el.remove();
   }
@@ -264,6 +292,7 @@ class Reversi implements GameInstance {
       if (!this.board[sq]) sfx.error();
       return;
     }
+    this.showHint(-1);
     this.history.push({ board: this.board.slice(), last: this.last, moves: this.moves });
     if (this.history.length > 120) this.history.shift();
     if (!this.counted) {
@@ -348,7 +377,7 @@ class Reversi implements GameInstance {
       const c = this.cells[sq];
       c.classList.toggle("filled", v !== 0);
       c.classList.toggle("light", v === 2);
-      c.classList.toggle("legal", legal.has(sq));
+      c.classList.toggle("legal", this.showMoves && legal.has(sq));
       c.classList.toggle("last", sq === this.last);
       c.disabled = false;
       c.setAttribute("aria-label", `${"abcdefgh"[sq & 7]}${8 - (sq >> 3)}: ${v === 1 ? "yours" : v === 2 ? "computer" : legal.has(sq) ? "empty, you can play here" : "empty"}`);

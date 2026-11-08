@@ -1,7 +1,7 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { recordLoss, recordStart, recordWin, getStats } from "../../core/stats";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { getSettings, motionEnabled } from "../../core/settings";
 
 const COLS = 7;
 const ROWS = 6;
@@ -104,15 +104,16 @@ function negamax(b: Board, depth: number, alpha: number, beta: number, me: Cell,
   return best;
 }
 
-function bestMove(b: Board, depth: number, moves: number, sloppy: boolean): number {
+function bestMove(b: Board, depth: number, moves: number, sloppy: boolean, me: Cell = 2): number {
   const legal = ORDER.filter((c) => b[c][ROWS - 1] === 0);
   if (sloppy && Math.random() < 0.3) return legal[Math.floor(Math.random() * legal.length)];
+  const them: Cell = me === 1 ? 2 : 1;
   let best = legal[0];
   let bestV = -Infinity;
   for (const c of legal) {
-    const r = drop(b, c, 2);
+    const r = drop(b, c, me);
     if (wins(b, c, r)) return c;
-    const v = -negamax(b, depth - 1, -Infinity, Infinity, 1, moves + 1) + (Math.random() - 0.5) * 0.5;
+    const v = -negamax(b, depth - 1, -Infinity, Infinity, them, moves + 1) + (Math.random() - 0.5) * 0.5;
     b[c][r] = 0;
     if (v > bestV) {
       bestV = v;
@@ -136,6 +137,9 @@ class ConnectFour implements GameInstance {
   private hover = -1;
   private aiTimer = 0;
   private endTimers: number[] = [];
+  /** Columns played this game, in order. */
+  private played: { c: number; who: Cell }[] = [];
+  private hintTimer = 0;
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
@@ -178,8 +182,68 @@ class ConnectFour implements GameInstance {
     return `connect4:${this.level}`;
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  requestHint() {
+    if (this.over || this.turn !== 1 || !getSettings().hints) return;
+    const c = bestMove(this.b.map((col) => col.slice()) as Board, DEPTH.hard, this.moves, false, 1);
+    this.showHint(c);
+  }
+
+  private showHint(c: number) {
+    clearTimeout(this.hintTimer);
+    this.el.querySelectorAll<HTMLElement>(".c4-cols button").forEach((b, i) => b.classList.toggle("hint", i === c));
+    if (c >= 0) this.hintTimer = window.setTimeout(() => this.showHint(-1), 2400);
+  }
+
+  /** Take back your last move (and the computer's reply). */
+  undo() {
+    let lastYou = -1;
+    for (let i = this.played.length - 1; i >= 0; i--)
+      if (this.played[i].who === 1) {
+        lastYou = i;
+        break;
+      }
+    if (lastYou < 0) return;
+    clearTimeout(this.aiTimer);
+    this.endTimers.forEach(clearTimeout);
+    this.endTimers = [];
+    this.showHint(-1);
+    const undone = this.played.splice(lastYou);
+    for (const m of undone.reverse()) {
+      const r = this.b[m.c].lastIndexOf(m.who);
+      if (r >= 0) this.b[m.c][r] = 0;
+      this.discs.querySelector(`[data-at="${m.c},${r}"]`)?.remove();
+      this.moves--;
+    }
+    if (this.over) {
+      this.over = false;
+      this.boardEl.classList.remove("done");
+      this.discs.querySelectorAll(".win").forEach((d) => d.classList.remove("win"));
+      this.ctx.clearEnd();
+    }
+    this.turn = 1;
+    sfx.flip();
+    this.markLast();
+    this.ctx.setUndo(this.played.some((m) => m.who === 1));
+    this.paintGhost();
+    this.status();
+  }
+
+  private markLast() {
+    this.discs.querySelectorAll(".last").forEach((d) => d.classList.remove("last"));
+    const m = this.played[this.played.length - 1];
+    if (!m) return;
+    const r = this.b[m.c].lastIndexOf(m.who);
+    this.discs.querySelector(`[data-at="${m.c},${r}"]`)?.classList.add("last");
+  }
+
   newGame() {
     clearTimeout(this.aiTimer);
+    this.showHint(-1);
+    this.played = [];
     this.endTimers.forEach(clearTimeout);
     this.endTimers = [];
     if (this.counted && !this.over) recordLoss(this.key);
@@ -200,6 +264,7 @@ class ConnectFour implements GameInstance {
 
   destroy() {
     clearTimeout(this.aiTimer);
+    clearTimeout(this.hintTimer);
     this.endTimers.forEach(clearTimeout);
     window.removeEventListener("keydown", this.onKey);
     this.resizeObs.disconnect();
@@ -230,11 +295,13 @@ class ConnectFour implements GameInstance {
 
   private play(c: number) {
     if (this.over || this.turn !== 1 || this.b[c][ROWS - 1] !== 0) return;
+    this.showHint(-1);
     if (!this.counted) {
       this.counted = true;
       recordStart(this.key);
     }
     this.place(c, 1);
+    this.ctx.setUndo(true);
     if (!this.over) {
       this.turn = 2;
       this.paintGhost();
@@ -257,6 +324,7 @@ class ConnectFour implements GameInstance {
   private place(c: number, who: Cell) {
     const r = drop(this.b, c, who);
     this.moves++;
+    this.played.push({ c, who });
     const d = document.createElement("div");
     d.className = `c4-disc p${who}`;
     d.style.setProperty("--c", String(c));
@@ -265,6 +333,7 @@ class ConnectFour implements GameInstance {
     d.dataset.at = `${c},${r}`;
     this.discs.appendChild(d);
     sfx.place();
+    this.markLast();
     const w = winner(this.b);
     if (w) return this.finish(w.who, w.cells);
     if (this.moves === COLS * ROWS) return this.finish(0, []);

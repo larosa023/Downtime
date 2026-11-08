@@ -17,5 +17,12 @@ export const asteroids: GameModule = {
   iconSvg: `<path d="M5 18 12 4l7 14-7-4z"/>`,
   hasUndo: false,
   statsKey: () => "asteroids",
+  keys: [
+    ["← → or A D", "Turn"],
+    ["↑ or W", "Thrust"],
+    ["Space", "Shoot"],
+    ["↓, S or Shift", "Hyperspace"],
+    ["Esc", "Pause"],
+  ],
   load: () => import("./impl/asteroids"),
 };

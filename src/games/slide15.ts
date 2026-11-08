@@ -19,7 +19,7 @@ export const slide15: GameModule = {
     return s;
   })(),
   iconSvg: `<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M14 16.5h5M17 14l2.5 2.5L17 19"/>`,
-  hasUndo: false,
+  hasUndo: true,
   options: [
     {
       key: "size",
@@ -29,8 +29,22 @@ export const slide15: GameModule = {
         { value: "small", label: "3×3" },
         { value: "medium", label: "4×4" },
         { value: "large", label: "5×5" },
+        { value: "huge", label: "6×6" },
       ],
     },
+    {
+      key: "look",
+      label: "Tiles",
+      default: "numbers",
+      choices: [
+        { value: "numbers", label: "Numbers" },
+        { value: "picture", label: "Picture" },
+      ],
+    },
+  ],
+  keys: [
+    ["Arrow keys", "Slide a tile into the gap"],
+    ["Click", "Slide a tile, or a whole line"],
   ],
   statsKey: (o) => `slide15:${o("size")}`,
   load: () => import("./impl/slide15"),

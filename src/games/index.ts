@@ -18,7 +18,7 @@ const ORDER = [
 ];
 
 const isGame = (v: unknown): v is GameModule =>
-  !!v && typeof v === "object" && "id" in v && "create" in v && "statsKey" in v;
+  !!v && typeof v === "object" && "id" in v && ("create" in v || "load" in v) && "statsKey" in v;
 
 export const GAMES: GameModule[] = Object.values(modules)
   .flatMap((m) => Object.values(m).filter(isGame))

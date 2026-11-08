@@ -6,6 +6,8 @@ import { sfx } from "../../core/sound";
 
 
 class FortyThieves extends CardGame {
+  protected sendsOnTap = true;
+  protected usesAutoMove = true;
   constructor(root: HTMLElement, ctx: GameContext) {
     super(root, ctx, "save:fortythieves");
   }

@@ -3,6 +3,8 @@
   inset: 0;
   overflow: hidden;
   touch-action: none;
+  /* The table is its own layout and paint island: status bar ticks don't re-lay-out 104 cards. */
+  contain: strict;
 }
 
 .slot,
@@ -60,9 +62,12 @@
 
 .card {
   perspective: 900px;
-  transition: transform 0.36s var(--ease);
-  will-change: transform;
+  transition: transform calc(0.36s * var(--speed, 1)) var(--ease);
   cursor: grab;
+}
+/* Only cards in hand get their own compositor layer; 104 permanent layers cost memory for nothing. */
+.card.dragging {
+  will-change: transform;
 }
 .instant .card,
 .card.dragging {
@@ -81,7 +86,7 @@
   inset: 0;
   border-radius: inherit;
   transform-style: preserve-3d;
-  transition: transform 0.34s var(--ease), box-shadow 0.2s;
+  transition: transform calc(0.34s * var(--speed, 1)) var(--ease), box-shadow calc(0.2s * var(--speed, 1));
   box-shadow: var(--shadow);
 }
 .card.down .card-inner {
@@ -212,7 +217,7 @@
 }
 
 .card.nudge .card-inner {
-  animation: nudge 0.32s;
+  animation: nudge calc(0.32s * var(--speed, 1));
 }
 @keyframes nudge {
   20% { transform: translateX(-4px); }
@@ -223,16 +228,26 @@
 .card.hint .card-inner {
   animation: hint 1.2s var(--ease);
 }
+/* Hints still show when animations are off, as a steady outline. */
+.no-motion .card.hint .card-inner {
+  animation: none;
+  box-shadow: 0 0 0 3px var(--accent), var(--shadow-lift);
+}
 @keyframes hint {
   30%, 60% { box-shadow: 0 0 0 3px var(--accent), var(--shadow-lift); }
 }
 
-.card.bounce .card-inner {
-  animation: bounce 0.7s var(--ease);
+/* Win fountain: each card arcs up and out, then settles back on its pile. */
+.card.fountain {
+  z-index: 3000 !important;
 }
-@keyframes bounce {
-  35% { transform: translateY(-22%) rotate(-4deg); }
-  70% { transform: translateY(3%) rotate(1deg); }
+.card.fountain .card-inner {
+  animation: fountain calc(1s * var(--speed, 1)) cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+@keyframes fountain {
+  0% { transform: none; }
+  45% { transform: translate(var(--fx), var(--fy)) rotate(var(--fr)); box-shadow: var(--shadow-lift); }
+  100% { transform: none; }
 }
 
 /* Cards deep in a stack don't cast their own shadow. */
@@ -260,4 +275,90 @@
 .large-cards .idx.tl {
   top: calc(var(--cw) * 0.035);
   left: calc(var(--cw) * 0.025);
+}
+
+/* ---------- Card faces (Settings → Cards → Card faces) ---------- */
+
+/* The big centered index is only used by the Simple face. */
+.big {
+  display: none;
+}
+
+/* Simple: one large rank and suit in the middle, a small corner index for cascades. */
+[data-face="simple"] .pip,
+[data-face="simple"] .court,
+[data-face="simple"] .idx.br {
+  display: none;
+}
+[data-face="simple"] .big {
+  position: absolute;
+  inset: 22% 0 8%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cw) * 0.03);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: calc(var(--cw) * 0.46);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+[data-face="simple"] .big svg {
+  width: calc(var(--cw) * 0.3);
+  height: calc(var(--cw) * 0.3);
+}
+
+/* Bold: heavy type, bigger pips, deeper reds. */
+[data-face="bold"] .card-face {
+  --card-red: color-mix(in oklab, #d0101e 80%, var(--card-ink));
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--card-edge) 60%, var(--card-ink));
+}
+[data-face="bold"] .card-face.red {
+  color: var(--card-red);
+}
+[data-face="bold"] .idx {
+  font-weight: 850;
+  font-size: calc(var(--cw) * 0.235);
+  width: calc(var(--cw) * 0.27);
+}
+[data-face="bold"] .idx svg {
+  width: calc(var(--cw) * 0.17);
+  height: calc(var(--cw) * 0.17);
+}
+[data-face="bold"] .pip {
+  width: calc(var(--cw) * 0.52);
+  height: calc(var(--cw) * 0.52);
+}
+[data-face="bold"] .pip-ace {
+  width: calc(var(--cw) * 0.62);
+  height: calc(var(--cw) * 0.62);
+}
+[data-face="bold"] .court-letter {
+  font-weight: 850;
+  font-size: calc(var(--cw) * 0.48);
+}
+[data-face="bold"] .court-suit {
+  width: calc(var(--cw) * 0.22);
+  height: calc(var(--cw) * 0.22);
+}
+.large-cards[data-face="bold"] .idx {
+  width: calc(var(--cw) * 0.33);
+  font-size: calc(var(--cw) * 0.3);
+}
+/* Four-color stays in charge of diamonds and clubs on every face. */
+.four-color .card-face.s-D {
+  color: #1f63c4;
+}
+.four-color .card-face.s-C {
+  color: #1d8a4a;
+}
+/* Large print + Simple: keep the big center clear of the larger corner index. */
+.large-cards[data-face="simple"] .big {
+  inset: 34% 0 5% 18%;
+  font-size: calc(var(--cw) * 0.4);
+}
+.large-cards[data-face="simple"] .big svg {
+  width: calc(var(--cw) * 0.26);
+  height: calc(var(--cw) * 0.26);
 }

@@ -22,6 +22,22 @@ export const flapper: GameModule = {
     <path d="M100 64l8 3-8 4z" fill="#f2b33d"/>`,
   iconSvg: `<ellipse cx="11" cy="13" rx="6" ry="5"/><path d="M17 12.5l3.5 1.5-3.5 1.5"/><path d="M8 11.5c1-2 3-2.5 4-1.5"/>`,
   hasUndo: false,
-  statsKey: () => "flapper",
+  options: [
+    {
+      key: "level",
+      label: "Difficulty",
+      default: "normal",
+      choices: [
+        { value: "easy", label: "Easy" },
+        { value: "normal", label: "Normal" },
+        { value: "hard", label: "Hard" },
+      ],
+    },
+  ],
+  statsKey: (o) => (o("level") === "easy" || o("level") === "hard" ? `flapper:${o("level")}` : "flapper"),
+  keys: [
+    ["Click, Space or ↑", "Flap"],
+    ["Esc", "Pause"],
+  ],
   load: () => import("./impl/flapper"),
 };

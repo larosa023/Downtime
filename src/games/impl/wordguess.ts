@@ -2,7 +2,7 @@ import { GameContext, GameInstance } from "../../core/types";
 import { recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { animScale, motionEnabled } from "../../core/settings";
 import { dailyRng, dayNumber, todayKey } from "../../core/rng";
 import { markDailyDone } from "../../core/daily";
 import words from "../words.json";
@@ -54,9 +54,13 @@ class WordGuess implements GameInstance {
   private busy = false;
   private pendingEnter = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Revealed letters must be used in later guesses. */
+  private hard: boolean;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.mode = ctx.option("mode") === "practice" ? "practice" : "daily";
+    this.hard = ctx.option("rules") === "hard";
     this.el = document.createElement("div");
     this.el.className = "wordguess";
     this.el.innerHTML = `<div class="wg-board" role="grid" aria-label="Guesses"></div><div class="wg-keys"></div>`;
@@ -145,6 +149,14 @@ class WordGuess implements GameInstance {
     this.start(true);
   }
 
+  inProgress() {
+    return this.s.counted && !this.s.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
   destroy() {
     window.removeEventListener("keydown", this.onKey);
     this.resizeObs.disconnect();
@@ -164,7 +176,12 @@ class WordGuess implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || e.altKey || this.paused) return;
+    if (this.s.over && (e.key === "c" || e.key === "C")) {
+      e.preventDefault();
+      void this.copyResult();
+      return;
+    }
     if (e.key === "Enter" || e.key === "Backspace" || /^[a-zA-Z]$/.test(e.key)) {
       e.preventDefault();
       this.press(e.key.length === 1 ? e.key.toLowerCase() : e.key);
@@ -199,6 +216,10 @@ class WordGuess implements GameInstance {
     const row = this.s.guesses.length;
     if (this.current.length < LEN) return this.reject(row, "Not enough letters.");
     if (!VALID.has(this.current)) return this.reject(row, "That's not in the word list.");
+    if (this.hard) {
+      const problem = this.hardModeProblem(this.current);
+      if (problem) return this.reject(row, problem);
+    }
     if (!this.s.counted) {
       this.s.counted = true;
       recordStart(this.key);
@@ -220,6 +241,36 @@ class WordGuess implements GameInstance {
     });
   }
 
+  /** In hard mode, every revealed hint has to be used. Returns what's missing, or "". */
+  private hardModeProblem(guess: string): string {
+    const ord = ["1st", "2nd", "3rd", "4th", "5th"];
+    for (const g of this.s.guesses) {
+      const marks = score(g, this.s.answer);
+      for (let i = 0; i < LEN; i++) if (marks[i] === "hit" && guess[i] !== g[i]) return `The ${ord[i]} letter must be ${g[i].toUpperCase()}.`;
+      const need: Record<string, number> = {};
+      marks.forEach((m, i) => {
+        if (m !== "miss") need[g[i]] = (need[g[i]] ?? 0) + 1;
+      });
+      for (const [ch, n] of Object.entries(need)) {
+        if ([...guess].filter((x) => x === ch).length < n) return `Your guess must include ${ch.toUpperCase()}.`;
+      }
+    }
+    return "";
+  }
+
+  /** Copy the result as a grid of squares, without the letters. */
+  private async copyResult() {
+    const sq: Record<Mark, string> = { hit: "🟩", near: "🟨", miss: "⬜" };
+    const rows = this.s.guesses.map((g) => score(g, this.s.answer).map((m) => sq[m]).join(""));
+    const head = `Downtime Word Guess ${this.mode === "daily" ? `#${dayNumber()} ` : ""}${this.s.won ? this.s.guesses.length : "X"}/${TRIES}${this.hard ? "*" : ""}`;
+    try {
+      await navigator.clipboard.writeText(`${head}\n\n${rows.join("\n")}`);
+      this.ctx.toast("Result copied.");
+    } catch {
+      this.ctx.toast("Couldn't copy the result.");
+    }
+  }
+
   private reject(row: number, message: string) {
     this.ctx.toast(message);
     sfx.error();
@@ -238,7 +289,7 @@ class WordGuess implements GameInstance {
     const guess = this.s.guesses[row];
     const marks = score(guess, this.s.answer);
     const animate = motionEnabled();
-    const step = animate ? 260 : 0;
+    const step = animate ? 260 * animScale() : 0;
     this.busy = true;
     marks.forEach((m, c) => {
       const t = this.tileAt(row, c);
@@ -248,7 +299,7 @@ class WordGuess implements GameInstance {
         setTimeout(() => {
           t.dataset.mark = m;
           sfx.flip();
-        }, c * step + 170);
+        }, c * step + 170 * animScale());
       } else t.dataset.mark = m;
     });
     setTimeout(
@@ -261,7 +312,7 @@ class WordGuess implements GameInstance {
           if (!this.s.over) this.submit();
         }
       },
-      animate ? (LEN - 1) * step + 420 : 0,
+      animate ? (LEN - 1) * step + 420 * animScale() : 0,
     );
   }
 
@@ -292,7 +343,12 @@ class WordGuess implements GameInstance {
     const n = this.s.guesses.length;
     const lines: string[] = [];
     lines.push(this.s.won ? `Got it in ${n} of ${TRIES}` : `The word was ${this.s.answer.toUpperCase()}`);
+    const played = dist.reduce((a, b) => a + b, 0);
+    const wins = played - dist[TRIES];
+    const avg = wins ? dist.slice(0, TRIES).reduce((a, v, i) => a + v * (i + 1), 0) / wins : 0;
     lines.push(`Wins by guess count: ${dist.slice(0, TRIES).map((v, i) => `${i + 1}→${v}`).join("  ")}${dist[TRIES] ? `  missed→${dist[TRIES]}` : ""}`);
+    if (wins) lines.push(`Average ${avg.toFixed(1)} guesses over ${wins} win${wins > 1 ? "s" : ""}`);
+    lines.push("Press C to copy your result.");
     if (this.mode === "daily") lines.push("A new word comes tomorrow. Practice mode has unlimited words.");
     this.ctx.end({
       won: this.s.won,

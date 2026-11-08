@@ -274,7 +274,7 @@ class Sudoku implements GameInstance {
     const r = this.el.getBoundingClientRect();
     const wide = r.width > r.height * 1.25;
     this.el.classList.toggle("wide", wide);
-    const size = wide ? Math.min(r.height - 48, r.width - 320) : Math.min(r.width - 40, r.height - 200);
+    const size = wide ? Math.min(r.height - 48, r.width - 320) : Math.min(r.width - 40, r.height - 250);
     this.el.style.setProperty("--grid", `${Math.max(260, Math.min(size, 620))}px`);
   }
 

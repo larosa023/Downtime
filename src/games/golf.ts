@@ -8,5 +8,10 @@ export const golf: GameModule = {
   art: "golf",
   hasUndo: true,
   statsKey: () => "golf",
+  keys: [
+    ["Click", "Play a column's bottom card"],
+    ["Click the stock", "Turn the next card"],
+    ["H", "Hint"],
+  ],
   load: () => import("./impl/golf"),
 };

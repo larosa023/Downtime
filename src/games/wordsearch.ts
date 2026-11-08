@@ -17,9 +17,20 @@ export const wordsearch: GameModule = {
         { value: "small", label: "10×10" },
         { value: "medium", label: "13×13" },
         { value: "large", label: "16×16" },
+        { value: "huge", label: "20×20" },
+      ],
+    },
+    {
+      key: "dirs",
+      label: "Directions",
+      default: "all",
+      choices: [
+        { value: "all", label: "All 8 directions" },
+        { value: "forward", label: "Forward only" },
       ],
     },
   ],
+  keys: [["Drag", "Select a word in any direction"]],
   statsKey: (o) => `wordsearch:${o("size")}`,
   iconSvg: `<rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M7.5 7.5 16.5 16.5" stroke-width="3.2" opacity="0.45"/>`,
   artSvg: (() => {

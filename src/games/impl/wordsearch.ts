@@ -3,12 +3,14 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
+import { getSettings } from "../../core/settings";
 import words from "../words.json";
 
 const SIZES: Record<string, { n: number; count: number }> = {
   small: { n: 10, count: 8 },
   medium: { n: 13, count: 12 },
   large: { n: 16, count: 16 },
+  huge: { n: 20, count: 22 },
 };
 const DIRS = [
   [1, 0], [0, 1], [1, 1], [1, -1],
@@ -35,7 +37,7 @@ interface Saved {
   counted: boolean;
 }
 
-function build(n: number, count: number): { grid: string[]; placed: Placed[] } {
+function build(n: number, count: number, forwardOnly = false): { grid: string[]; placed: Placed[] } {
   const pool: string[] = words.search.filter((w: string) => w.length <= Math.min(8, n - 1));
   for (let attempt = 0; attempt < 50; attempt++) {
     const grid: string[] = Array(n * n).fill("");
@@ -47,7 +49,8 @@ function build(n: number, count: number): { grid: string[]; placed: Placed[] } {
       const w = pool[Math.floor(Math.random() * pool.length)];
       if (used.has(w) || [...used].some((u) => u.includes(w) || w.includes(u))) continue;
       // Favor forward directions a bit, so small grids aren't all backwards words.
-      const d = DIRS[Math.random() < 0.6 ? Math.floor(Math.random() * 4) : Math.floor(Math.random() * 8)];
+      // Easy grids only run left to right, top to bottom, or diagonally down.
+      const d = forwardOnly ? DIRS[[0, 1, 2][Math.floor(Math.random() * 3)]] : DIRS[Math.random() < 0.6 ? Math.floor(Math.random() * 4) : Math.floor(Math.random() * 8)];
       const [dc, dr] = d;
       const r = Math.floor(Math.random() * n);
       const c = Math.floor(Math.random() * n);
@@ -91,6 +94,8 @@ class WordSearch implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  private hintsUsed = 0;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
@@ -122,7 +127,8 @@ class WordSearch implements GameInstance {
 
   newGame() {
     if (this.counted && !this.over) recordLoss(this.key);
-    const { grid, placed } = build(this.n, SIZES[this.level].count);
+    const { grid, placed } = build(this.n, SIZES[this.level].count, this.ctx.option("dirs") === "forward");
+    this.hintsUsed = 0;
     this.grid = grid;
     this.placed = placed;
     this.found = new Set();
@@ -134,6 +140,33 @@ class WordSearch implements GameInstance {
     this.render();
     this.persist();
     this.status();
+  }
+
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    if (paused && this.drag) {
+      this.drag = null;
+      this.paint();
+    }
+  }
+
+  /** Flash the first letter of a word that hasn't been found. */
+  requestHint() {
+    if (this.over || this.paused || !getSettings().hints) return;
+    const left = this.placed.filter((p) => !this.found.has(p.word));
+    if (!left.length) return;
+    const p = left[Math.floor(Math.random() * left.length)];
+    const cell = this.gridEl.querySelector<HTMLElement>(`[data-i="${p.r * this.n + p.c}"]`);
+    if (!cell) return;
+    cell.classList.remove("hint");
+    void cell.offsetWidth;
+    cell.classList.add("hint");
+    this.hintsUsed++;
+    this.ctx.toast(`${p.word.toUpperCase()} starts here.`);
   }
 
   destroy() {
@@ -225,7 +258,7 @@ class WordSearch implements GameInstance {
   }
 
   private onDown = (e: PointerEvent) => {
-    if (this.over || e.button !== 0) return;
+    if (this.over || this.paused || e.button !== 0) return;
     const { r, c } = this.cellFrom(e);
     if (r < 0 || c < 0 || r >= this.n || c >= this.n) return;
     e.preventDefault();
@@ -247,6 +280,7 @@ class WordSearch implements GameInstance {
     const x = (e.clientX - rect.left) / s - (d.c + 0.5);
     const y = (e.clientY - rect.top) / s - (d.r + 0.5);
     const dist = Math.hypot(x, y);
+    const was = d.er * 1000 + d.ec;
     if (dist < 0.5) {
       d.er = d.r;
       d.ec = d.c;
@@ -264,7 +298,8 @@ class WordSearch implements GameInstance {
       d.er = d.r + dr * len;
       d.ec = d.c + dc * len;
     }
-    this.paint();
+    // Only redraw when the selection actually changes.
+    if (d.er * 1000 + d.ec !== was) this.paint();
   };
 
   private onUp = () => {
@@ -306,7 +341,10 @@ class WordSearch implements GameInstance {
         this.ctx.end({
           won: true,
           title: "All found",
-          lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, `${this.placed.length} words in a ${this.n}×${this.n} grid`],
+          lines: [
+            `${formatTime(secs)}${newBestTime ? " — a new best" : ""}`,
+            `${this.placed.length} words in a ${this.n}×${this.n} grid${this.hintsUsed ? `, ${this.hintsUsed} hint${this.hintsUsed > 1 ? "s" : ""}` : ""}`,
+          ],
         }),
       600,
     );

@@ -3,8 +3,11 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
 
-const SIZES: Record<string, [number, number]> = { small: [4, 4], medium: [6, 4], large: [6, 6] };
-const COLORS = ["#d2453a", "#2e6f9e", "#2f8a52"];
+import { animScale } from "../../core/settings";
+
+const SIZES: Record<string, [number, number]> = { small: [4, 4], medium: [6, 4], large: [6, 6], huge: [8, 6] };
+const COLORS = ["#d2453a", "#2e6f9e", "#2f8a52", "#b07a1c"];
+const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const SHAPES = [
   `<circle cx="20" cy="20" r="13"/>`,
   `<rect x="8" y="8" width="24" height="24" rx="4"/>`,
@@ -28,9 +31,13 @@ class Memory implements GameInstance {
   private lock = false;
   private flipBack = 0;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  private set: string;
+  private peekTimer = 0;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
+    this.set = ctx.option("set") || "shapes";
     this.el = document.createElement("div");
     this.el.className = "memory";
     root.appendChild(this.el);
@@ -46,6 +53,7 @@ class Memory implements GameInstance {
 
   newGame() {
     clearTimeout(this.flipBack);
+    clearTimeout(this.peekTimer);
     if (this.counted && !this.over) recordLoss(this.key);
     const [cols, rows] = SIZES[this.level];
     const pairs = (cols * rows) / 2;
@@ -62,24 +70,53 @@ class Memory implements GameInstance {
     this.ctx.setUndo(false);
     this.el.innerHTML = `<div class="mem-grid" style="--cols:${cols};--rows:${rows}">${this.faces
       .map((k, i) => {
-        const shape = SHAPES[k % SHAPES.length];
-        const color = COLORS[Math.floor(k / SHAPES.length)];
-        return `<button class="mem-card" data-i="${i}" aria-label="Hidden card" style="animation-delay:${i * 18}ms">
-          <span class="mem-inner"><span class="mem-back"></span><span class="mem-face"><svg viewBox="0 0 40 40" fill="${color}">${shape}</svg></span></span>
+        return `<button class="mem-card" data-i="${i}" aria-label="Hidden card" style="animation-delay:${i * 18 * animScale()}ms">
+          <span class="mem-inner"><span class="mem-back"></span><span class="mem-face">${this.faceSvg(k)}</span></span>
         </button>`;
       })
       .join("")}</div>`;
     this.gridEl = this.el.querySelector(".mem-grid")!;
     this.gridEl.addEventListener("click", (e) => {
       const c = (e.target as HTMLElement).closest<HTMLElement>(".mem-card");
-      if (c) this.flip(Number(c.dataset.i));
+      if (c && !this.paused) this.flip(Number(c.dataset.i));
     });
     this.resize();
     this.status();
+    if (this.ctx.option("peek") === "on") {
+      // Show every card for a moment before play starts.
+      this.lock = true;
+      this.peekTimer = window.setTimeout(() => {
+        this.gridEl.querySelectorAll(".mem-card").forEach((c) => c.classList.add("up"));
+        this.peekTimer = window.setTimeout(() => {
+          this.gridEl.querySelectorAll(".mem-card").forEach((c) => c.classList.remove("up"));
+          this.lock = false;
+        }, 1800);
+      }, 400);
+    }
+  }
+
+  /** The picture on a card, by kind, in the chosen symbol set. */
+  private faceSvg(k: number) {
+    const color = COLORS[Math.floor(k / SHAPES.length) % COLORS.length];
+    if (this.set === "letters" || this.set === "numbers") {
+      const label = this.set === "letters" ? LETTERS[k % LETTERS.length] : String(k + 1);
+      const c = COLORS[k % COLORS.length];
+      return `<svg viewBox="0 0 40 40"><text x="20" y="28.5" text-anchor="middle" fill="${c}" class="mem-glyph">${label}</text></svg>`;
+    }
+    return `<svg viewBox="0 0 40 40" fill="${color}">${SHAPES[k % SHAPES.length]}</svg>`;
+  }
+
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
   }
 
   destroy() {
     clearTimeout(this.flipBack);
+    clearTimeout(this.peekTimer);
     this.timer.destroy();
     this.resizeObs.disconnect();
     this.el.remove();
@@ -98,6 +135,7 @@ class Memory implements GameInstance {
 
   private flip(i: number) {
     if (this.over || this.matched[i] || this.open.includes(i)) return;
+    if (this.lock && this.open.length < 2) return;
     if (this.lock) {
       // Clicking during the pause flips the mismatched pair back right away.
       clearTimeout(this.flipBack);
@@ -126,7 +164,7 @@ class Memory implements GameInstance {
       if (this.matched.every(Boolean)) this.win();
     } else {
       this.lock = true;
-      this.flipBack = window.setTimeout(() => this.hideOpen(), 850);
+      this.flipBack = window.setTimeout(() => this.hideOpen(), 850 * Math.max(animScale(), 0.7));
     }
     this.status();
   }

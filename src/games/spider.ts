@@ -20,5 +20,12 @@ export const spider: GameModule = {
     },
   ],
   statsKey: (o) => `spider:${o("suits")}suit`,
+  keys: [
+    ["Click", "Send a card to the best spot"],
+    ["Double-click", "Send a card when click-to-move is off"],
+    ["Drag", "Move a card or run"],
+    ["H", "Hint"],
+    ["Click the stock", "Deal a new row"],
+  ],
   load: () => import("./impl/spider"),
 };

@@ -3,6 +3,7 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
+import { animScale, getSettings } from "../../core/settings";
 
 // ---------------------------------------------------------------------------
 // Generator and solver. Patterns are built so every white cell sits in an
@@ -536,8 +537,11 @@ class Kakuro implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  private showMistakes: boolean;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.showMistakes = ctx.option("check") === "on";
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "small";
     this.el = document.createElement("div");
     this.el.className = "kakuro";
@@ -593,6 +597,69 @@ class Kakuro implements GameInstance {
     this.persist();
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
+  /** Fill the selected cell (or the most constrained empty one) with its answer. */
+  requestHint() {
+    if (this.over || this.paused || !getSettings().hints) return;
+    const { white, solution } = this.p;
+    let i = this.sel >= 0 && white[this.sel] && this.values[this.sel] !== solution[this.sel] ? this.sel : -1;
+    if (i < 0) {
+      let best = 10;
+      white.forEach((w, j) => {
+        if (!w || this.values[j] === solution[j]) return;
+        const n = this.candidates(j).length;
+        if (n < best) {
+          best = n;
+          i = j;
+        }
+      });
+    }
+    if (i < 0) return;
+    this.sel = i;
+    const wasNotes = this.notesMode;
+    this.notesMode = false;
+    this.enter(solution[i]);
+    this.notesMode = wasNotes;
+  }
+
+  /** Digits that fit cell i given both of its runs' clues and what's already placed. */
+  private candidates(i: number): number[] {
+    let allowed = 0x1ff;
+    for (const ri of this.runsOf[i]) {
+      const run = this.p.runs[ri];
+      let placed = 0;
+      for (const j of run.cells) if (j !== i && this.values[j]) placed |= 1 << (this.values[j] - 1);
+      let union = 0;
+      for (const m of COMBOS.get(`${run.cells.length}:${run.sum}`) ?? []) if ((m & placed) === placed) union |= m;
+      allowed &= union & ~placed;
+    }
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((d) => allowed & (1 << (d - 1)));
+  }
+
+  /** Pencil in every digit each empty cell could still take. */
+  private fillNotes() {
+    if (this.over) return;
+    this.push();
+    this.p.white.forEach((w, i) => {
+      if (w && !this.values[i]) this.notes[i] = this.candidates(i).reduce((m, d) => m | (1 << (d - 1)), 0);
+    });
+    if (!this.counted) {
+      this.counted = true;
+      recordStart(this.key);
+    }
+    this.timer.start();
+    sfx.flip();
+    this.paint();
+    this.persist();
+  }
+
   destroy() {
     window.removeEventListener("keydown", this.onKey);
     this.persist();
@@ -605,7 +672,7 @@ class Kakuro implements GameInstance {
     const r = this.el.getBoundingClientRect();
     const wide = r.width > r.height * 1.25;
     this.el.classList.toggle("wide", wide);
-    const avail = wide ? Math.min(r.height - 48, r.width - 330) : Math.min(r.width - 40, r.height - 230);
+    const avail = wide ? Math.min(r.height - 48, r.width - 330) : Math.min(r.width - 40, r.height - 280);
     const cell = Math.floor(avail / this.p.cols);
     this.el.style.setProperty("--k", `${Math.max(26, Math.min(cell, 68))}px`);
   }
@@ -666,7 +733,7 @@ class Kakuro implements GameInstance {
       }
       if (intro) {
         el.classList.add("intro");
-        el.style.animationDelay = `${(r + c) * 16}ms`;
+        el.style.animationDelay = `${(r + c) * 16 * animScale()}ms`;
       }
       this.gridEl.appendChild(el);
       this.cellEls.push(el);
@@ -674,15 +741,17 @@ class Kakuro implements GameInstance {
     this.padEl.innerHTML =
       [1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="sdk-key kk-key" data-n="${d}">${d}</button>`).join("") +
       `<button class="sdk-key sdk-tool kk-tool" data-tool="notes" aria-pressed="${this.notesMode}">Notes</button>` +
-      `<button class="sdk-key sdk-tool kk-tool" data-tool="erase">Erase</button>`;
+      `<button class="sdk-key sdk-tool kk-tool" data-tool="erase">Erase</button>` +
+      `<button class="sdk-key sdk-tool kk-tool kk-fill" data-tool="fill" title="Pencil in every possible digit (F)">Fill notes</button>`;
     this.gridEl.addEventListener("pointerdown", (e) => {
       const c = (e.target as HTMLElement).closest<HTMLElement>(".kk-cell");
-      if (c) this.select(Number(c.dataset.i));
+      if (c && !this.paused) this.select(Number(c.dataset.i));
     });
     this.padEl.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>("button");
-      if (!b) return;
-      if (b.dataset.n) this.enter(Number(b.dataset.n));
+      if (!b || this.paused) return;
+      if (b.dataset.tool === "fill") this.fillNotes();
+      else if (b.dataset.n) this.enter(Number(b.dataset.n));
       else if (b.dataset.tool === "erase") this.enter(0);
       else if (b.dataset.tool === "notes") this.toggleNotes();
     });
@@ -704,11 +773,13 @@ class Kakuro implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || this.paused) return;
     const k = e.key;
     if (/^[1-9]$/.test(k)) this.enter(Number(k));
     else if (k === "Backspace" || k === "Delete" || k === "0") this.enter(0);
     else if (k === "n" || k === "N") this.toggleNotes();
+    else if (k === "f" || k === "F") this.fillNotes();
+    else if (k === "h" || k === "H") this.requestHint();
     else if (k.startsWith("Arrow")) this.move(k);
     else return;
     e.preventDefault();
@@ -793,7 +864,7 @@ class Kakuro implements GameInstance {
       const v = this.values[i];
       el.classList.toggle("sel", i === this.sel);
       el.classList.toggle("peer", i !== this.sel && peers.has(i));
-      el.classList.toggle("wrong", dupes.has(i));
+      el.classList.toggle("wrong", dupes.has(i) || (this.showMistakes && !!v && v !== this.p.solution[i]));
       if (v) el.textContent = String(v);
       else if (this.notes[i])
         el.innerHTML = `<span class="kk-notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9]

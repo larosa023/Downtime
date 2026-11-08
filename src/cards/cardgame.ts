@@ -433,6 +433,7 @@ export abstract class CardGame implements GameInstance {
     if (!cards.length) cards = this.piles.filter((p) => p.kind === "waste").flatMap((p) => p.cards).slice(-26);
     if (!cards.length) return false;
     const w = this.table.el.clientWidth;
+    const h = this.table.el.clientHeight;
     const k = animScale() || 1;
     // Newest cards first, so the top of each stack leaves first.
     const order = [...cards].reverse().slice(0, 52);
@@ -442,7 +443,8 @@ export abstract class CardGame implements GameInstance {
       if (!el || !pos) return;
       const t = (i / Math.max(1, order.length - 1)) * 2 - 1; // -1..1
       const dx = t * w * 0.32 + (Math.random() - 0.5) * 40;
-      const dy = -(120 + Math.random() * 140);
+      // Arc into the table: up from piles near the bottom, down from piles along the top.
+      const dy = (pos.y < h * 0.4 ? 1 : -1) * (120 + Math.random() * 140);
       el.style.setProperty("--fx", `${dx.toFixed(0)}px`);
       el.style.setProperty("--fy", `${dy.toFixed(0)}px`);
       el.style.setProperty("--fr", `${(t * 24 + (Math.random() - 0.5) * 16).toFixed(1)}deg`);

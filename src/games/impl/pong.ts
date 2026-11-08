@@ -1,6 +1,7 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
+import { GameLoop, fitCanvas, watchDpr } from "./arcade-loop";
 
 // Logical field; the canvas scales it to fit.
 const FW = 800;
@@ -9,8 +10,6 @@ const PW = 12;
 const PH = 84;
 const PX = 28; // paddle inset from the edge
 const BALL = 9;
-const WIN_AT = 7;
-const STEP = 1 / 120; // fixed physics step
 
 const LEVELS: Record<string, { react: number; speed: number; error: number }> = {
   easy: { react: 0.28, speed: 260, error: 46 },
@@ -33,9 +32,11 @@ class Pong implements GameInstance {
   private serveTimer = 0;
   private state: "ready" | "playing" | "paused" | "over" = "ready";
   private keys = new Set<string>();
-  private acc = 0;
-  private last = 0;
-  private raf = 0;
+  private loop: GameLoop;
+  private winAt = 7;
+  private shellPaused = false;
+  private resumeAfterShell = false;
+  private offDpr: () => void;
   private flash = 0;
   private colors: Record<string, string> = {};
   private resizeObs: ResizeObserver;
@@ -45,6 +46,8 @@ class Pong implements GameInstance {
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("level") in LEVELS ? ctx.option("level") : "normal";
+    this.winAt = [3, 5, 7, 11].includes(Number(ctx.option("to"))) ? Number(ctx.option("to")) : 7;
+    this.loop = new GameLoop({ hz: 120, step: (dt) => this.update(dt), draw: () => this.draw() });
     this.wrap = document.createElement("div");
     this.wrap.className = "breakout";
     this.canvas = document.createElement("canvas");
@@ -61,16 +64,39 @@ class Pong implements GameInstance {
     this.canvas.addEventListener("pointerdown", this.onClick);
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.wrap);
-    this.themeObs = new MutationObserver(() => this.readColors());
-    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    this.themeObs = new MutationObserver(() => {
+      this.readColors();
+      this.loop.redraw();
+    });
+    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+    this.offDpr = watchDpr(() => this.resize());
     this.readColors();
     this.newGame();
-    this.last = performance.now();
-    this.raf = requestAnimationFrame(this.frame);
   }
 
   private get key() {
-    return `pong:${this.level}`;
+    return this.winAt === 7 ? `pong:${this.level}` : `pong:${this.level}:to${this.winAt}`;
+  }
+
+  inProgress() {
+    return this.started && this.state !== "over";
+  }
+
+  setPaused(paused: boolean) {
+    if (paused === this.shellPaused) return;
+    this.shellPaused = paused;
+    if (paused) {
+      this.resumeAfterShell = this.state === "playing";
+      if (this.state === "playing") this.pause();
+      else this.loop.stop();
+    } else if (this.resumeAfterShell && this.state === "paused") {
+      this.resumeAfterShell = false;
+      this.resume();
+    }
+  }
+
+  private wake() {
+    if (this.state === "ready" && !this.shellPaused) this.loop.start();
   }
 
   newGame() {
@@ -81,15 +107,19 @@ class Pong implements GameInstance {
     this.cpu.y = this.cpu.aim = FH / 2;
     this.serveDir = 1;
     this.resetBall();
+    this.loop.stop();
     this.state = "ready";
+    this.resumeAfterShell = false;
     this.ctx.clearEnd();
     this.ctx.setUndo(false);
-    this.show("Click or press Space to serve", "Move with the mouse, W/S or the arrow keys. First to 7.");
+    this.show("Click or press Space to serve", `Move with the mouse, W/S or the arrow keys. First to ${this.winAt}.`);
     this.status();
+    this.loop.redraw();
   }
 
   destroy() {
-    cancelAnimationFrame(this.raf);
+    this.loop.stop();
+    this.offDpr();
     window.removeEventListener("keydown", this.onDown);
     window.removeEventListener("keyup", this.onUp);
     window.removeEventListener("blur", this.onBlur);
@@ -101,12 +131,9 @@ class Pong implements GameInstance {
   resize() {
     const r = this.wrap.getBoundingClientRect();
     const scale = Math.max(0.2, Math.min((r.width - 40) / FW, (r.height - 40) / FH));
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.style.width = `${FW * scale}px`;
-    this.canvas.style.height = `${FH * scale}px`;
-    this.canvas.width = Math.round(FW * scale * dpr);
-    this.canvas.height = Math.round(FH * scale * dpr);
+    const dpr = fitCanvas(this.canvas, FW * scale, FH * scale);
     this.g.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    this.loop.redraw();
   }
 
   private readColors() {
@@ -145,32 +172,36 @@ class Pong implements GameInstance {
     this.hide();
     this.serveTimer = 0;
     this.serve();
+    this.loop.start();
   }
 
   private resume() {
     this.state = "playing";
     this.hide();
-    this.last = performance.now();
+    this.loop.start();
   }
 
   private pause() {
     this.state = "paused";
+    this.keys.clear();
+    this.loop.stop();
+    this.loop.redraw();
     this.show("Paused", "Press Space to keep going");
   }
 
   private onBlur = () => {
     this.keys.clear();
-    if (this.state === "playing") this.pause();
   };
 
   private onPointer = (e: PointerEvent) => {
     const r = this.canvas.getBoundingClientRect();
     this.you.target = ((e.clientY - r.top) / r.height) * FH;
     this.usingMouse = true;
+    this.wake();
   };
 
   private onClick = () => {
-    if (this.state === "over") return;
+    if (this.state === "over" || this.shellPaused) return;
     if (this.state === "paused") return this.resume();
     if (this.state === "ready") this.start();
   };
@@ -182,8 +213,10 @@ class Pong implements GameInstance {
       e.preventDefault();
       this.keys.add(k);
       this.usingMouse = false;
-    } else if (k === "Space" || k === "KeyP" || k === "Escape") {
+      this.wake();
+    } else if (k === "Space" || k === "Escape") {
       e.preventDefault();
+      if (this.shellPaused) return;
       if (this.state === "playing") this.pause();
       else if (this.state === "paused") this.resume();
       else if (this.state === "ready" && k === "Space") this.start();
@@ -194,26 +227,13 @@ class Pong implements GameInstance {
     this.keys.delete(e.code);
   };
 
-  private frame = (now: number) => {
-    this.raf = requestAnimationFrame(this.frame);
-    const dt = Math.min((now - this.last) / 1000, 0.1);
-    this.last = now;
-    if (this.state === "playing" || this.state === "ready") {
-      this.acc += dt;
-      while (this.acc >= STEP) {
-        this.update(STEP);
-        this.acc -= STEP;
-      }
-    } else this.acc = 0;
-    this.flash = Math.max(0, this.flash - dt * 3);
-    this.draw();
-  };
-
   private clampPaddle(y: number) {
     return Math.max(PH / 2, Math.min(FH - PH / 2, y));
   }
 
   private update(dt: number) {
+    if (this.state !== "playing" && this.state !== "ready") return;
+    this.flash = Math.max(0, this.flash - dt * 3);
     // Your paddle
     const dir = (this.keys.has("ArrowDown") || this.keys.has("KeyS") ? 1 : 0) - (this.keys.has("ArrowUp") || this.keys.has("KeyW") ? 1 : 0);
     if (dir) this.you.target = this.you.y + dir * 600 * dt * 3;
@@ -221,7 +241,14 @@ class Pong implements GameInstance {
     const step = (this.usingMouse ? 1800 : 600) * dt;
     this.you.y += Math.max(-step, Math.min(step, this.you.target - this.you.y));
 
-    if (this.state !== "playing") return;
+    if (this.state !== "playing") {
+      // Waiting to serve: sleep once the paddle settles.
+      if (!this.keys.size && Math.abs(this.you.target - this.you.y) < 0.5 && this.flash === 0) {
+        this.loop.stop();
+        this.loop.redraw();
+      }
+      return;
+    }
     const b = this.ball;
 
     if (this.serveTimer > 0) {
@@ -291,7 +318,7 @@ class Pong implements GameInstance {
     this.status();
     if (who === 0) sfx.eat();
     else sfx.error();
-    if (this.score[who] >= WIN_AT) return this.finish(who === 0);
+    if (this.score[who] >= this.winAt) return this.finish(who === 0);
     this.serveDir = who === 0 ? 1 : -1;
     this.resetBall();
     this.serveTimer = 0.8;
@@ -299,6 +326,8 @@ class Pong implements GameInstance {
 
   private finish(won: boolean) {
     this.state = "over";
+    this.loop.stop();
+    this.loop.redraw();
     if (won) {
       recordWin(this.key);
       sfx.win();

@@ -19,5 +19,12 @@ export const canfield: GameModule = {
     ${[0, 1, 2].map((k) => aBack(14 + k * 2, 76 - k * 2)).join("")}${aCard(18, 74, false, "Q")}
     ${[0, 1, 2].map((i) => [0, 1].map((k) => aCard(110 + i * 46, 76 + k * 16, (i + k) % 2 === 0, ["8", "6", "K", "5", "A", "4"][(i * 2 + k) % 6])).join("")).join("")}`,
   iconSvg: `<rect x="4" y="4" width="8" height="11" rx="1.5"/><path d="M6 17v3h8v-3"/><rect x="14" y="9" width="6" height="11" rx="1.5"/>`,
+  keys: [
+    ["Click", "Send a card to the best spot"],
+    ["Double-click", "Send a card when click-to-move is off"],
+    ["Drag", "Move a card or run"],
+    ["H", "Hint"],
+    ["Click the stock", "Turn three cards"],
+  ],
   load: () => import("./impl/canfield"),
 };

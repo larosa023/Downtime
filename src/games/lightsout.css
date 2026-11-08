@@ -25,10 +25,10 @@
   box-shadow: inset 0 -3px 0 color-mix(in oklab, var(--bg) 40%, transparent);
   cursor: pointer;
   transition:
-    background-color 0.18s,
-    box-shadow 0.25s,
-    transform 0.08s;
-  animation: lo-in 0.35s var(--ease) both;
+    background-color calc(0.18s * var(--speed, 1)),
+    box-shadow calc(0.25s * var(--speed, 1)),
+    transform calc(0.08s * var(--speed, 1));
+  animation: lo-in calc(0.35s * var(--speed, 1)) var(--ease) both;
 }
 .lo-cell.no-intro {
   animation: none;
@@ -46,7 +46,7 @@
     0 0 calc(var(--bsz) * 0.04) color-mix(in oklab, var(--accent) 55%, transparent);
 }
 .lo-cell.pressed {
-  animation: lo-press 0.22s var(--ease);
+  animation: lo-press calc(0.22s * var(--speed, 1)) var(--ease);
 }
 .lo-cell.hint::after {
   content: "";
@@ -54,7 +54,7 @@
   inset: -4px;
   border-radius: 26%;
   box-shadow: 0 0 0 3px var(--danger);
-  animation: lo-hint 1.6s var(--ease) forwards;
+  animation: lo-hint calc(1.6s * var(--speed, 1)) var(--ease) forwards;
 }
 @keyframes lo-in {
   from {
@@ -82,4 +82,9 @@
 }
 .lo-a-off {
   fill: color-mix(in oklab, var(--ink) 10%, transparent);
+}
+
+.lo-cell.cursor {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }

@@ -1,36 +1,82 @@
 import { CardGame } from "../../cards/cardgame";
-import { Card, isRed, makeCards, shuffle, SUITS, suitSvg } from "../../cards/deck";
+import { Card, isRed, SUITS, Suit, suitSvg } from "../../cards/deck";
 import { Pile, TableLayout } from "../../cards/table";
 import { GameContext } from "../../core/types";
 import { sfx } from "../../core/sound";
+import { dailyRng } from "../../core/rng";
+import { markDailyDone } from "../../core/daily";
+
+const MS_SUITS: Suit[] = ["C", "D", "H", "S"];
+
+/** The classic Microsoft FreeCell deal for a game number (1–32000): columns of cards, left to right. */
+export function msDeal(n: number): Card[][] {
+  let seed = n >>> 0;
+  const rand = () => {
+    seed = (seed * 214013 + 2531011) % 2147483648;
+    return Math.floor(seed / 65536);
+  };
+  // Card i is rank floor(i / 4) + 1 of suit MS_SUITS[i % 4].
+  const deck = Array.from({ length: 52 }, (_, i) => i);
+  const cols: Card[][] = Array.from({ length: 8 }, () => []);
+  for (let left = 52, k = 0; left > 0; left--, k++) {
+    const j = rand() % left;
+    const v = deck[j];
+    deck[j] = deck[left - 1];
+    cols[k % 8].push({ id: v, suit: MS_SUITS[v % 4], rank: Math.floor(v / 4) + 1, up: true });
+  }
+  return cols;
+}
+
+/** Today's deal number, the same for everyone. */
+export const dailyDeal = () => 1 + Math.floor(dailyRng("freecell")() * 32000);
 import { CELL_MARK } from "../marks";
 
 class FreeCell extends CardGame {
+  protected sendsOnTap = true;
+  protected usesAutoMove = true;
+  private daily: boolean;
+  private dealNo = 0;
+
   constructor(root: HTMLElement, ctx: GameContext) {
-    super(root, ctx, "save:freecell");
+    const daily = ctx.option("mode") === "daily";
+    // Daily deals keep their own save, so a random game in progress isn't lost.
+    super(root, ctx, daily ? "save:freecell:daily" : "save:freecell");
+    this.daily = daily;
   }
 
   variant() {
-    return "std";
+    // Includes the date for the daily deal, so yesterday's never resumes.
+    return this.daily ? `daily-${dailyDeal()}` : "std";
   }
   statsKey() {
-    return "freecell";
+    return this.daily ? "freecell:daily" : "freecell";
+  }
+  protected onWin() {
+    if (this.daily) markDailyDone("freecell");
+  }
+  protected extraState() {
+    return { deal: this.dealNo };
+  }
+  protected restoreExtra(x: unknown) {
+    this.dealNo = (x as { deal?: number } | null)?.deal ?? 0;
+  }
+  protected extraStatus() {
+    return this.dealNo ? [{ label: "Deal", value: `#${this.dealNo}` }] : [];
   }
   protected dealFrom() {
     return "c0";
   }
 
   protected deal() {
-    const cards = shuffle(makeCards(1));
+    const n = this.daily ? dailyDeal() : 1 + (crypto.getRandomValues(new Uint32Array(1))[0] % 32000);
+    this.dealNo = n;
+    const cols = msDeal(n);
     this.piles = [
       ...[0, 1, 2, 3].map((i): Pile => ({ id: `c${i}`, kind: "cell", cards: [] })),
       ...[0, 1, 2, 3].map((i): Pile => ({ id: `f${i}`, kind: "foundation", cards: [] })),
       ...Array.from({ length: 8 }, (_, i): Pile => ({ id: `t${i}`, kind: "tableau", cards: [] })),
     ];
-    cards.forEach((c, i) => {
-      c.up = true;
-      this.pile(`t${i % 8}`).cards.push(c);
-    });
+    cols.forEach((col, i) => (this.pile(`t${i}`).cards = col));
   }
 
   protected layout(w: number, h: number): TableLayout {

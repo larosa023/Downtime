@@ -11,6 +11,7 @@ const SUIT_SETS: Record<string, Suit[]> = {
 };
 
 class Spider extends CardGame {
+  protected sendsOnTap = true;
   private suits: string;
 
   constructor(root: HTMLElement, ctx: GameContext) {
@@ -134,6 +135,12 @@ class Spider extends CardGame {
       const t = this.top(p);
       if (t && !t.up) t.up = true;
     }
+  }
+
+  /** Classic scoring: 500 to start, one off per move, 100 for each finished run. */
+  protected score() {
+    const runs = this.piles.filter((p) => p.kind === "foundation" && p.cards.length).length;
+    return 500 - this.moves + runs * 100;
   }
 
   protected extraStatus() {

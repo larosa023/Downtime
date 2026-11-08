@@ -1,17 +1,23 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordScore, recordStart } from "../../core/stats";
 import { sfx } from "../../core/sound";
+import { GameLoop, fitCanvas, watchDpr } from "./arcade-loop";
 
 // Logical field; the canvas scales it to fit.
 const FW = 480;
 const FH = 640;
-const STEP = 1 / 120;
 const GROUND = 56;
 const BIRD_X = 140;
 const BIRD_R = 15;
 const GRAVITY = 1500;
 const FLAP = -470;
 const PIPE_W = 70;
+
+const LEVELS: Record<string, { gap: number; minGap: number; speed: number; maxSpeed: number; spacing: number }> = {
+  easy: { gap: 230, minGap: 185, speed: 130, maxSpeed: 190, spacing: 300 },
+  normal: { gap: 200, minGap: 150, speed: 150, maxSpeed: 230, spacing: 270 },
+  hard: { gap: 175, minGap: 128, speed: 175, maxSpeed: 270, spacing: 245 },
+};
 
 interface Pipe {
   x: number;
@@ -33,14 +39,19 @@ class Flapper implements GameInstance {
   private hills: { x: number; h: number; w: number }[] = [];
   private clouds: { x: number; y: number; s: number }[] = [];
   private state: "ready" | "playing" | "paused" | "over" | "falling" = "ready";
-  private acc = 0;
-  private last = 0;
-  private raf = 0;
+  private loop: GameLoop;
+  private level: string;
+  private readyTime = 0;
+  private shellPaused = false;
+  private resumeAfterShell = false;
+  private offDpr: () => void;
   private colors: Record<string, string> = {};
   private resizeObs: ResizeObserver;
   private themeObs: MutationObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.level = ctx.option("level") in LEVELS ? ctx.option("level") : "normal";
+    this.loop = new GameLoop({ hz: 120, step: (dt) => this.update(dt), draw: () => this.draw() });
     this.wrap = document.createElement("div");
     this.wrap.className = "breakout";
     this.canvas = document.createElement("canvas");
@@ -54,24 +65,49 @@ class Flapper implements GameInstance {
     for (let i = 0; i < 8; i++) this.hills.push({ x: i * 90 + Math.random() * 40, h: 50 + Math.random() * 70, w: 120 + Math.random() * 80 });
     for (let i = 0; i < 5; i++) this.clouds.push({ x: Math.random() * FW, y: 60 + Math.random() * 220, s: 0.7 + Math.random() * 0.7 });
     window.addEventListener("keydown", this.onDown);
-    window.addEventListener("blur", this.onBlur);
     this.canvas.addEventListener("pointerdown", this.onPointer);
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.wrap);
-    this.themeObs = new MutationObserver(() => this.readColors());
-    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    this.themeObs = new MutationObserver(() => {
+      this.readColors();
+      this.loop.redraw();
+    });
+    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+    this.offDpr = watchDpr(() => this.resize());
     this.readColors();
     this.newGame();
-    this.last = performance.now();
-    this.raf = requestAnimationFrame(this.frame);
+  }
+
+  private get key() {
+    return this.level === "normal" ? "flapper" : `flapper:${this.level}`;
+  }
+
+  inProgress() {
+    return this.state === "playing" || this.state === "paused";
+  }
+
+  setPaused(paused: boolean) {
+    if (paused === this.shellPaused) return;
+    this.shellPaused = paused;
+    if (paused) {
+      this.resumeAfterShell = this.state === "playing";
+      if (this.state === "playing") this.pause();
+      else this.loop.stop();
+    } else if (this.resumeAfterShell && this.state === "paused") {
+      this.resumeAfterShell = false;
+      this.resume();
+    } else if (this.state === "ready" || this.state === "falling") this.loop.start();
   }
 
   newGame() {
-    if (this.state === "playing" || this.state === "paused") recordScore("flapper", this.score);
+    if (this.state === "playing" || this.state === "paused") recordScore(this.key, this.score);
     this.bird = { y: FH / 2 - 40, vy: 0, flapT: 0 };
     this.pipes = [];
     this.score = 0;
     this.state = "ready";
+    this.readyTime = 0;
+    this.resumeAfterShell = false;
+    if (!this.shellPaused) this.loop.start();
     this.ctx.clearEnd();
     this.ctx.setUndo(false);
     this.show("Click or press Space to flap", "Fly through the gaps");
@@ -79,9 +115,9 @@ class Flapper implements GameInstance {
   }
 
   destroy() {
-    cancelAnimationFrame(this.raf);
+    this.loop.stop();
+    this.offDpr();
     window.removeEventListener("keydown", this.onDown);
-    window.removeEventListener("blur", this.onBlur);
     this.resizeObs.disconnect();
     this.themeObs.disconnect();
     this.wrap.remove();
@@ -90,12 +126,9 @@ class Flapper implements GameInstance {
   resize() {
     const r = this.wrap.getBoundingClientRect();
     const scale = Math.max(0.2, Math.min((r.width - 40) / FW, (r.height - 40) / FH));
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.style.width = `${FW * scale}px`;
-    this.canvas.style.height = `${FH * scale}px`;
-    this.canvas.width = Math.round(FW * scale * dpr);
-    this.canvas.height = Math.round(FH * scale * dpr);
+    const dpr = fitCanvas(this.canvas, FW * scale, FH * scale);
     this.g.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    this.loop.redraw();
   }
 
   private readColors() {
@@ -125,19 +158,17 @@ class Flapper implements GameInstance {
     this.overlay.classList.remove("show");
   }
 
-  private onBlur = () => {
-    if (this.state === "playing") this.pause();
-  };
-
   private pause() {
     this.state = "paused";
-    this.show("Paused", "Press P or Esc to keep going");
+    this.loop.stop();
+    this.loop.redraw();
+    this.show("Paused", "Press Esc to keep going");
   }
 
   private resume() {
     this.state = "playing";
     this.hide();
-    this.last = performance.now();
+    this.loop.start();
   }
 
   private onPointer = (e: PointerEvent) => {
@@ -148,7 +179,8 @@ class Flapper implements GameInstance {
   private onDown = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
     const k = e.code;
-    if (k === "KeyP" || k === "Escape") {
+    if (this.shellPaused) return;
+    if (k === "Escape") {
       e.preventDefault();
       if (this.state === "playing") this.pause();
       else if (this.state === "paused") this.resume();
@@ -159,13 +191,13 @@ class Flapper implements GameInstance {
   };
 
   private press() {
-    if (this.state === "over" || this.state === "falling") return;
+    if (this.state === "over" || this.state === "falling" || this.shellPaused) return;
     if (this.state === "paused") return this.resume();
     if (this.state === "ready") {
-      recordStart("flapper");
+      recordStart(this.key);
       this.state = "playing";
       this.hide();
-      this.last = performance.now();
+      this.loop.start();
       this.addPipe(FW + 120);
     }
     this.bird.vy = FLAP;
@@ -175,11 +207,13 @@ class Flapper implements GameInstance {
 
   // Difficulty eases in: the gap narrows and pipes come faster as the score climbs.
   private speed() {
-    return Math.min(150 + this.score * 3, 230);
+    const L = LEVELS[this.level];
+    return Math.min(L.speed + this.score * 3, L.maxSpeed);
   }
 
   private addPipe(x: number) {
-    const gap = Math.max(150, 200 - this.score * 2);
+    const L = LEVELS[this.level];
+    const gap = Math.max(L.minGap, L.gap - this.score * 2);
     const margin = 70;
     const prev = this.pipes[this.pipes.length - 1];
     let gapY = margin + gap / 2 + Math.random() * (FH - GROUND - margin * 2 - gap);
@@ -188,20 +222,6 @@ class Flapper implements GameInstance {
     this.pipes.push({ x, gapY, gap, scored: false });
   }
 
-  private frame = (now: number) => {
-    this.raf = requestAnimationFrame(this.frame);
-    const dt = Math.min((now - this.last) / 1000, 0.1);
-    this.last = now;
-    if (this.state !== "paused" && this.state !== "over") {
-      this.acc += dt;
-      while (this.acc >= STEP) {
-        this.update(STEP);
-        this.acc -= STEP;
-      }
-    } else this.acc = 0;
-    this.draw();
-  };
-
   private update(dt: number) {
     const b = this.bird;
     this.bob += dt;
@@ -209,8 +229,16 @@ class Flapper implements GameInstance {
     if (this.state === "ready") {
       b.y = FH / 2 - 40 + Math.sin(this.bob * 3) * 8;
       this.dist += 60 * dt;
+      // Idle on the start screen: settle after a few seconds so it doesn't burn CPU.
+      this.readyTime += dt;
+      if (this.readyTime > 8) {
+        b.y = FH / 2 - 40;
+        this.loop.stop();
+        this.loop.redraw();
+      }
       return;
     }
+    if (this.state !== "playing" && this.state !== "falling") return;
 
     b.vy = Math.min(b.vy + GRAVITY * dt, 760);
     b.y += b.vy * dt;
@@ -228,7 +256,7 @@ class Flapper implements GameInstance {
     for (const p of this.pipes) p.x -= sp * dt;
     this.pipes = this.pipes.filter((p) => p.x > -PIPE_W - 10);
     const lastPipe = this.pipes[this.pipes.length - 1];
-    const spacing = Math.max(220, 270 - this.score * 2);
+    const spacing = Math.max(LEVELS[this.level].spacing - 50, LEVELS[this.level].spacing - this.score * 2);
     if (!lastPipe || lastPipe.x < FW - spacing) this.addPipe(FW + 20);
 
     for (const p of this.pipes) {
@@ -268,13 +296,15 @@ class Flapper implements GameInstance {
 
   private gameOver() {
     this.state = "over";
-    const { newBest } = recordScore("flapper", this.score);
+    this.loop.stop();
+    this.loop.redraw();
+    const { newBest } = recordScore(this.key, this.score);
     sfx.lose();
     this.status();
     this.ctx.end({
       won: false,
       title: "Ouch",
-      lines: [`Score ${this.score}${newBest ? " — a new best" : ""}`, `Best ${getStats("flapper").bestScore ?? 0}`],
+      lines: [`Score ${this.score}${newBest ? " — a new best" : ""}`, `Best ${getStats(this.key).bestScore ?? 0}`],
     });
   }
 
@@ -411,7 +441,7 @@ class Flapper implements GameInstance {
   private status() {
     this.ctx.setStatus([
       { label: "Score", value: String(this.score) },
-      { label: "Best", value: String(Math.max(getStats("flapper").bestScore ?? 0, this.score)) },
+      { label: "Best", value: String(Math.max(getStats(this.key).bestScore ?? 0, this.score)) },
     ]);
   }
 }

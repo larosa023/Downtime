@@ -16,6 +16,7 @@ const SPOTS = ROWS.flatMap((xs, r) => xs.map((x) => ({ r, x })));
 class TriPeaks extends CardGame {
   private streak = 0;
   private bestStreak = 0;
+  private points = 0;
 
   constructor(root: HTMLElement, ctx: GameContext) {
     super(root, ctx, "save:tripeaks");
@@ -40,6 +41,7 @@ class TriPeaks extends CardGame {
     ];
     this.streak = 0;
     this.bestStreak = 0;
+    this.points = 0;
     this.settle();
   }
 
@@ -91,6 +93,13 @@ class TriPeaks extends CardGame {
   protected userMove(from: Pile, index: number, to: Pile) {
     this.streak += 1;
     this.bestStreak = Math.max(this.bestStreak, this.streak);
+    // Each card in a chain is worth one more than the last; clearing a peak adds 15, all three 30 more.
+    this.points += this.streak;
+    const peak = this.piles.indexOf(from);
+    if (peak >= 0 && peak < 3) {
+      this.points += 15;
+      if ([0, 1, 2].every((i) => i === peak || !this.piles[i].cards.length)) this.points += 30;
+    }
     super.userMove(from, index, to);
   }
 
@@ -124,12 +133,17 @@ class TriPeaks extends CardGame {
   }
 
   protected extraState() {
-    return { streak: this.streak, bestStreak: this.bestStreak };
+    return { streak: this.streak, bestStreak: this.bestStreak, points: this.points };
   }
   protected restoreExtra(x: unknown) {
-    const s = (x ?? {}) as { streak?: number; bestStreak?: number };
+    const s = (x ?? {}) as { streak?: number; bestStreak?: number; points?: number };
+    this.points = s.points ?? 0;
     this.streak = s.streak ?? 0;
     this.bestStreak = s.bestStreak ?? 0;
+  }
+
+  protected score() {
+    return this.points;
   }
 
   protected extraStatus() {

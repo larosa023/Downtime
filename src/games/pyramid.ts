@@ -8,5 +8,11 @@ export const pyramid: GameModule = {
   art: "pyramid",
   hasUndo: true,
   statsKey: () => "pyramid",
+  keys: [
+    ["Click", "Pick two cards that add up to 13"],
+    ["Click a King", "Remove it"],
+    ["Click the stock", "Turn the next card"],
+    ["H", "Hint"],
+  ],
   load: () => import("./impl/pyramid"),
 };

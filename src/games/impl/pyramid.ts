@@ -156,6 +156,14 @@ class Pyramid extends CardGame {
     this.selected = null;
   }
 
+  /** 5 points per pyramid card, 1 per deck card, and 50 for clearing the pyramid. */
+  protected score() {
+    const left = this.piles.filter((p) => p.kind === "tableau").reduce((n, p) => n + p.cards.length, 0);
+    const done = this.piles.find((p) => p.id === "done")?.cards.length ?? 0;
+    const fromPyramid = 28 - left;
+    return fromPyramid * 5 + Math.max(0, done - fromPyramid) + (left === 0 ? 50 : 0);
+  }
+
   protected extraStatus() {
     const left = this.piles.filter((p) => p.kind === "tableau" && p.cards.length).length;
     return [

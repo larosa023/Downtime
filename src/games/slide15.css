@@ -33,8 +33,8 @@
   box-shadow: var(--shadow);
   cursor: pointer;
   transform: translate(calc(var(--c) * (var(--tile) + var(--gap))), calc(var(--r) * (var(--tile) + var(--gap))));
-  transition: transform 0.12s var(--ease), background-color 0.25s;
-  animation: ff-in 0.3s var(--ease) both;
+  transition: transform calc(0.12s * var(--speed, 1)) var(--ease), background-color calc(0.25s * var(--speed, 1));
+  animation: ff-in calc(0.3s * var(--speed, 1)) var(--ease) both;
 }
 .ff-tile.no-intro {
   animation: none;
@@ -46,7 +46,7 @@
   box-shadow: inset 0 -3px 0 color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow);
 }
 .ff-tile.nudge {
-  animation: ff-nudge 0.28s;
+  animation: ff-nudge calc(0.28s * var(--speed, 1));
 }
 @keyframes ff-in {
   from {
@@ -62,7 +62,7 @@
 .ff-board.solved .ff-tile {
   background: var(--accent);
   color: var(--accent-ink);
-  transition: background-color 0.5s, color 0.5s;
+  transition: background-color calc(0.5s * var(--speed, 1)), color calc(0.5s * var(--speed, 1));
 }
 
 .sl-a-board {
@@ -78,4 +78,24 @@
   font: 750 13px var(--display);
   text-anchor: middle;
   fill: var(--ink);
+}
+
+/* Picture tiles: one gradient across the solved board, cut into pieces. */
+.ff-board.picture .ff-tile {
+  background:
+    radial-gradient(circle at 30% 25%, color-mix(in oklab, var(--accent) 70%, #fff) 0 12%, transparent 40%),
+    radial-gradient(circle at 75% 70%, color-mix(in oklab, var(--danger) 55%, transparent) 0 10%, transparent 45%),
+    linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 30%, var(--surface)) 55%, color-mix(in oklab, var(--n3, var(--accent)) 60%, var(--surface)));
+  background-size: calc(var(--n) * 100%) calc(var(--n) * 100%);
+  background-position: calc(var(--hc) * 100% / (var(--n) - 1)) calc(var(--hr) * 100% / (var(--n) - 1));
+  color: color-mix(in oklab, #fff 85%, transparent);
+  font-size: calc(var(--tile) * 0.24);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  place-items: end start;
+  display: grid;
+  padding: calc(var(--tile) * 0.08) calc(var(--tile) * 0.12);
+}
+.ff-board.picture.solved .ff-tile {
+  color: transparent;
+  text-shadow: none;
 }

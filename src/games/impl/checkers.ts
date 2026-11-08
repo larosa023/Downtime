@@ -1,7 +1,7 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { getSettings, motionEnabled } from "../../core/settings";
 
 // Board cells: 0 empty, 1 your man, 2 your king, 3 computer man, 4 computer king.
 // You start at the bottom and move up. Squares are r * 8 + c; dark squares have (r + c) odd.
@@ -133,10 +133,10 @@ const LEVELS: Record<string, { depth: number; ms: number; noise: number }> = {
   hard: { depth: 14, ms: 900, noise: 0 },
 };
 
-export function bestMove(board: number[], level: string): CMove | null {
+export function bestMove(board: number[], level: string, side: Side = 2): CMove | null {
   const l = LEVELS[level] ?? LEVELS.normal;
   const b = board.slice();
-  let moves = genMoves(b, 2);
+  let moves = genMoves(b, side);
   if (!moves.length) return null;
   if (moves.length === 1) return moves[0];
   const deadline = performance.now() + l.ms;
@@ -149,7 +149,7 @@ export function bestMove(board: number[], level: string): CMove | null {
     let dBest = moves[0];
     for (const m of moves) {
       const u = applyMove(b, m);
-      const v = -search(b, 1, d - 1, -WIN * 2, l.noise ? WIN * 2 : -alpha, 1, deadline, st);
+      const v = -search(b, opp(side), d - 1, -WIN * 2, l.noise ? WIN * 2 : -alpha, 1, deadline, st);
       undoMove(b, m, u);
       if (st.stop) break;
       sc.set(m, v);
@@ -220,10 +220,13 @@ class Checkers implements GameInstance {
   private aiTimer = 0;
   private endTimer = 0;
   private level: string;
+  private showMoves: boolean;
+  private hintTimer = 0;
   private resizeObs: ResizeObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("level") in LEVELS ? ctx.option("level") : "normal";
+    this.showMoves = ctx.option("dots") !== "off";
     this.el = document.createElement("div");
     this.el.className = "checkers";
     this.el.innerHTML = `<div class="ck-board"><div class="ck-squares"></div><div class="ck-layer"></div></div>`;
@@ -248,9 +251,35 @@ class Checkers implements GameInstance {
     return `checkers:${this.level}`;
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  requestHint() {
+    if (this.over || this.thinking || this.turn !== 1 || !getSettings().hints) return;
+    const plies = this.plies;
+    this.ctx.toast("Thinking…");
+    // Give the toast a frame to paint before the search runs.
+    setTimeout(() => {
+      if (plies !== this.plies || this.over) return;
+      const m = bestMove(this.board, "hard", 1);
+      if (!m) return;
+      this.prefix = [];
+      this.render();
+      this.showHint(m.path);
+    }, 30);
+  }
+
+  private showHint(path: number[]) {
+    clearTimeout(this.hintTimer);
+    this.squares.forEach((q, i) => q.classList.toggle("hint", path.includes(i)));
+    if (path.length) this.hintTimer = window.setTimeout(() => this.showHint([]), 2600);
+  }
+
   newGame() {
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    this.showHint([]);
     if (this.counted && !this.over) recordLoss(this.key);
     this.board = startBoard();
     this.ids = this.board.map((v) => (v ? this.nextId++ : 0));
@@ -275,6 +304,7 @@ class Checkers implements GameInstance {
     if (!s) return;
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    this.showHint([]);
     this.thinking = false;
     this.board = s.board;
     this.ids = s.ids;
@@ -295,6 +325,7 @@ class Checkers implements GameInstance {
   destroy() {
     clearTimeout(this.aiTimer);
     clearTimeout(this.endTimer);
+    clearTimeout(this.hintTimer);
     window.removeEventListener("keydown", this.onKey);
     this.resizeObs.disconnect();
     this.el.remove();
@@ -375,6 +406,7 @@ class Checkers implements GameInstance {
       recordStart(this.key);
     }
     this.prefix = [];
+    this.showHint([]);
     this.apply(m);
     if (this.over) return;
     this.thinking = true;
@@ -462,8 +494,8 @@ class Checkers implements GameInstance {
     this.squares.forEach((q, i) => {
       q.classList.toggle("last", !!this.last && this.last.includes(i));
       q.classList.toggle("sel", this.prefix.includes(i));
-      q.classList.toggle("target", nextSteps.has(i));
-      q.classList.toggle("can", !this.prefix.length && movable.has(i) && mustJump);
+      q.classList.toggle("target", this.showMoves && nextSteps.has(i));
+      q.classList.toggle("can", !this.prefix.length && movable.has(i) && (mustJump || this.showMoves));
     });
     const live = new Set<number>();
     // While you're partway through a chain, show your piece on the last square you clicked.

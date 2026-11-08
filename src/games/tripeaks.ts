@@ -8,5 +8,10 @@ export const tripeaks: GameModule = {
   art: "tripeaks",
   hasUndo: true,
   statsKey: () => "tripeaks",
+  keys: [
+    ["Click", "Play a card one higher or lower"],
+    ["Click the stock", "Turn the next card"],
+    ["H", "Hint"],
+  ],
   load: () => import("./impl/tripeaks"),
 };

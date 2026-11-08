@@ -215,16 +215,16 @@ export function applySettings(): void {
   root.classList.toggle("hide-moves", !current.showMoves);
   root.classList.toggle("no-hints", !current.hints);
   root.style.setProperty("--speed", String(animScale() || 0.001));
-  // Custom theme colors. The CSS for [data-theme="custom"] derives the rest from these.
+  // Custom theme colors. Always set, so the Custom preview card shows them under any theme;
+  // the CSS for [data-theme="custom"] derives the rest from these.
   const ct = current.customTheme;
   for (const [k, v] of Object.entries(ct)) {
-    if (current.theme === "custom" && hex(v)) root.style.setProperty(`--ct-${k}`, v);
+    if (hex(v)) root.style.setProperty(`--ct-${k}`, v);
     else root.style.removeProperty(`--ct-${k}`);
   }
-  if (current.theme === "custom") {
-    root.style.setProperty("--ct-dark", lum(ct.bg) < 0.45 ? "1" : "0");
-    root.style.colorScheme = lum(ct.bg) < 0.45 ? "dark" : "light";
-  } else root.style.removeProperty("color-scheme");
+  root.style.setProperty("--ct-accent-ink", hex(ct.accent) && lum(ct.accent) > 0.55 ? "#141414" : "#ffffff");
+  if (current.theme === "custom") root.style.colorScheme = hex(ct.bg) && lum(ct.bg) < 0.45 ? "dark" : "light";
+  else root.style.removeProperty("color-scheme");
   root.dataset.back = current.cardBack;
   root.classList.toggle("no-motion", !motionEnabled());
   root.classList.toggle("four-color", current.fourColor);

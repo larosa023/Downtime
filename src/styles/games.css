@@ -31,7 +31,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background-color 0.12s, transform 0.08s;
+  transition: background-color calc(0.12s * var(--speed, 1)), transform calc(0.08s * var(--speed, 1));
 }
 .cell:hover:not(.open) {
   background: var(--cell-hi);
@@ -48,7 +48,7 @@
   background: var(--cell-open);
   box-shadow: none;
   cursor: default;
-  animation: reveal 0.28s var(--ease) both;
+  animation: reveal calc(0.28s * var(--speed, 1)) var(--ease) both;
 }
 .cell.open[data-n]:not([data-n="0"]) {
   cursor: pointer;
@@ -66,7 +66,7 @@
 .cell[data-n="8"] { color: var(--n8); }
 .cell.flagged {
   color: var(--danger);
-  animation: plant 0.22s var(--ease);
+  animation: plant calc(0.22s * var(--speed, 1)) var(--ease);
 }
 @keyframes plant {
   from { transform: scale(0.7); }
@@ -79,7 +79,7 @@
 .cell.mine {
   background: color-mix(in oklab, var(--danger) 22%, var(--cell-open));
   color: var(--ink);
-  animation: reveal 0.3s var(--ease) both;
+  animation: reveal calc(0.3s * var(--speed, 1)) var(--ease) both;
 }
 .cell.mine.hit {
   background: var(--danger);
@@ -191,10 +191,10 @@
   font-size: calc(var(--tile) * 0.24);
 }
 .g2048-tile.spawn {
-  animation: tile-in 0.2s var(--ease) 0.06s both;
+  animation: tile-in calc(0.2s * var(--speed, 1)) var(--ease) calc(0.06s * var(--speed, 1)) both;
 }
 .g2048-tile.pop {
-  animation: tile-pop 0.2s var(--ease);
+  animation: tile-pop calc(0.2s * var(--speed, 1)) var(--ease);
 }
 @keyframes tile-in {
   from { scale: 0.2; opacity: 0; }
@@ -271,7 +271,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background-color 0.12s;
+  transition: background-color calc(0.12s * var(--speed, 1));
 }
 .sdk-cell:nth-child(9n) {
   border-right: 0;
@@ -305,10 +305,10 @@
   color: var(--danger);
 }
 .sdk-cell.intro {
-  animation: reveal 0.35s var(--ease) both;
+  animation: reveal calc(0.35s * var(--speed, 1)) var(--ease) both;
 }
 .sdk-grid.solved .sdk-cell {
-  animation: solved-wave 0.6s var(--ease) both;
+  animation: solved-wave calc(0.6s * var(--speed, 1)) var(--ease) both;
   animation-delay: var(--d);
 }
 @keyframes solved-wave {
@@ -356,7 +356,7 @@
   font-size: 22px;
   font-weight: 650;
   cursor: pointer;
-  transition: background-color 0.12s, transform 0.08s, opacity 0.2s;
+  transition: background-color calc(0.12s * var(--speed, 1)), transform calc(0.08s * var(--speed, 1)), opacity calc(0.2s * var(--speed, 1));
 }
 .sudoku.wide .sdk-key {
   height: 64px;
@@ -448,7 +448,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform 0.15s var(--ease), filter 0.2s, box-shadow 0.15s;
+  transition: transform calc(0.15s * var(--speed, 1)) var(--ease), filter calc(0.2s * var(--speed, 1)), box-shadow calc(0.15s * var(--speed, 1));
 }
 .mj-tile[hidden] {
   display: none;
@@ -489,24 +489,24 @@
 .mj-face.sticks { color: #2f8a52; }
 .mj-face.stars { color: #c8463b; }
 .mj-tile.hint {
-  animation: mj-hint 1.4s var(--ease);
+  animation: mj-hint calc(1.4s * var(--speed, 1)) var(--ease);
 }
 @keyframes mj-hint {
   20%, 60% { box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 4px color-mix(in oklab, var(--accent) 40%, transparent); transform: translateY(-3px); }
 }
 .mj-tile.blocked {
-  animation: nudge 0.3s;
+  animation: nudge calc(0.3s * var(--speed, 1));
 }
 .mj-tile.leaving {
   display: grid !important;
-  animation: mj-out 0.3s var(--ease) forwards;
+  animation: mj-out calc(0.3s * var(--speed, 1)) var(--ease) forwards;
   pointer-events: none;
 }
 @keyframes mj-out {
   to { opacity: 0; transform: translateY(-14px) scale(0.85); }
 }
 .mj-tile.intro {
-  animation: mj-in 0.4s var(--ease) both;
+  animation: mj-in calc(0.4s * var(--speed, 1)) var(--ease) both;
 }
 @keyframes mj-in {
   from { opacity: 0; transform: translateY(-18px); }
@@ -544,7 +544,7 @@
   font-weight: 650;
   font-size: calc(var(--cell) * 0.46);
   color: var(--ink);
-  transition: color 0.2s, opacity 0.2s;
+  transition: color calc(0.2s * var(--speed, 1)), opacity calc(0.2s * var(--speed, 1));
 }
 .ng-clue.col {
   flex-direction: column;
@@ -611,7 +611,7 @@
   position: relative;
   border-right: 1px solid var(--board-line);
   border-bottom: 1px solid var(--board-line);
-  transition: background-color 0.1s;
+  transition: background-color calc(0.1s * var(--speed, 1));
 }
 .ng-cell.edge-r {
   border-right: 2px solid color-mix(in oklab, var(--ink) 40%, transparent);
@@ -625,7 +625,7 @@
 .ng-cell.on {
   background: var(--ink);
   box-shadow: inset 0 0 0 1px var(--board);
-  animation: plant 0.15s var(--ease);
+  animation: plant calc(0.15s * var(--speed, 1)) var(--ease);
 }
 .ng-cell.x::after {
   content: "";
@@ -637,7 +637,7 @@
 }
 .ng.solved .ng-cell.on {
   background: var(--accent);
-  transition: background-color 0.5s;
+  transition: background-color calc(0.5s * var(--speed, 1));
 }
 .ng.solved .ng-cell.x::after {
   opacity: 0;
@@ -770,7 +770,7 @@
   background: none;
   perspective: 700px;
   cursor: pointer;
-  animation: rise-in 0.35s var(--ease) both;
+  animation: rise-in calc(0.35s * var(--speed, 1)) var(--ease) both;
 }
 .mem-inner {
   position: relative;
@@ -778,12 +778,17 @@
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  transition: transform 0.38s var(--ease);
+  transition: transform calc(0.38s * var(--speed, 1)) var(--ease);
 }
 .mem-card.up .mem-inner {
   transform: rotateY(180deg);
 }
 .mem-back,
+.mem-glyph {
+  font-family: var(--letters, var(--display));
+  font-weight: 800;
+  font-size: 24px;
+}
 .mem-face {
   position: absolute;
   inset: 0;
@@ -813,7 +818,7 @@
 }
 .mem-card.matched .mem-face {
   box-shadow: inset 0 0 0 2px var(--accent), var(--shadow);
-  animation: tile-pop 0.3s var(--ease);
+  animation: tile-pop calc(0.3s * var(--speed, 1)) var(--ease);
 }
 .mem-card.matched {
   cursor: default;

@@ -18,5 +18,12 @@ export const fortythieves: GameModule = {
     ${[0, 1, 2, 3, 4].map((i) => `<rect class="a-slot" x="${60 + i * 37}" y="8" width="32" height="44" rx="4"/>`).join("")}
     ${Array.from({ length: 6 }, (_, i) => [0, 1, 2].map((k) => aCard(10 + i * 39, 64 + k * 14, i % 2 === 1, ["9", "8", "7", "6", "5", "4"][(i + k) % 6])).join("")).join("")}`,
   iconSvg: `<rect x="3" y="5" width="7" height="10" rx="1.5"/><rect x="8" y="9" width="7" height="10" rx="1.5"/><rect x="14" y="5" width="7" height="10" rx="1.5"/>`,
+  keys: [
+    ["Click", "Send a card to the best spot"],
+    ["Double-click", "Send a card when click-to-move is off"],
+    ["Drag", "Move a card or run"],
+    ["H", "Hint"],
+    ["Click the stock", "Turn the next card"],
+  ],
   load: () => import("./impl/fortythieves"),
 };

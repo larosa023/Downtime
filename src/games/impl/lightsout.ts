@@ -3,9 +3,9 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { animScale, getSettings, motionEnabled } from "../../core/settings";
 
-const SIZES: Record<string, number> = { small: 5, medium: 6, large: 7 };
+const SIZES: Record<string, number> = { small: 5, medium: 6, large: 7, huge: 8 };
 const SAVE = "save:lightsout";
 
 function neighbors(i: number, n: number): number[] {
@@ -92,6 +92,9 @@ class LightsOut implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Keyboard cursor, shown once arrow keys are used. */
+  private cursor = -1;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.size = ctx.option("size") in SIZES ? ctx.option("size") : "small";
@@ -102,6 +105,7 @@ class LightsOut implements GameInstance {
     this.timer = new GameTimer(() => this.status());
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.el);
+    window.addEventListener("keydown", this.onKey);
 
     const saved = load<Saved | null>(SAVE, null);
     if (saved && saved.n === this.n && saved.lights?.length === this.n * this.n) {
@@ -163,8 +167,41 @@ class LightsOut implements GameInstance {
     this.status();
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
+  private onKey = (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || e.altKey || this.paused) return;
+    const n = this.n;
+    const k = e.key;
+    if (k.startsWith("Arrow")) {
+      e.preventDefault();
+      if (this.cursor < 0) this.cursor = Math.floor(n / 2) * n + Math.floor(n / 2);
+      else {
+        const r = Math.floor(this.cursor / n);
+        const c = this.cursor % n;
+        const nr = (r + (k === "ArrowDown" ? 1 : k === "ArrowUp" ? -1 : 0) + n) % n;
+        const nc = (c + (k === "ArrowRight" ? 1 : k === "ArrowLeft" ? -1 : 0) + n) % n;
+        this.cursor = nr * n + nc;
+      }
+      this.paintCursor();
+    } else if ((k === " " || k === "Enter") && this.cursor >= 0) {
+      e.preventDefault();
+      this.press(this.cursor);
+    }
+  };
+
+  private paintCursor() {
+    this.cells.forEach((c, i) => c.classList.toggle("cursor", i === this.cursor));
+  }
+
   requestHint() {
-    if (this.over) return;
+    if (this.over || this.paused || !getSettings().hints) return;
     const sol = minimalSolution(this.lights, this.n);
     if (!sol) return;
     const i = sol.findIndex(Boolean);
@@ -176,6 +213,7 @@ class LightsOut implements GameInstance {
   }
 
   destroy() {
+    window.removeEventListener("keydown", this.onKey);
     this.persist();
     this.timer.destroy();
     this.resizeObs.disconnect();
@@ -210,16 +248,18 @@ class LightsOut implements GameInstance {
       const b = document.createElement("button");
       b.className = "lo-cell";
       b.dataset.i = String(i);
-      if (intro && motionEnabled()) b.style.animationDelay = `${(Math.floor(i / this.n) + (i % this.n)) * 25}ms`;
+      if (intro && motionEnabled()) b.style.animationDelay = `${(Math.floor(i / this.n) + (i % this.n)) * 25 * animScale()}ms`;
       else b.classList.add("no-intro");
       this.grid.appendChild(b);
       this.cells.push(b);
     }
     this.grid.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>(".lo-cell");
-      if (b) this.press(Number(b.dataset.i));
+      if (b && !this.paused) this.press(Number(b.dataset.i));
     });
     this.resize();
+    if (this.cursor >= this.n * this.n) this.cursor = -1;
+    this.paintCursor();
     this.paint();
   }
 

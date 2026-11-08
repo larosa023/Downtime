@@ -22,6 +22,16 @@ export const ICONS = {
   sidebar: svg(`<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9 4.5v15"/>`),
   check: svg(`<path d="m5 12.5 4.5 4.5L19 7.5"/>`),
   lock: svg(`<rect x="5.5" y="11" width="13" height="9" rx="2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/>`),
+  search: svg(`<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>`),
+  shuffle: svg(`<path d="M4 7h3.5c5 0 5 10 10 10H20M4 17h3.5c1.6 0 2.7-1 3.6-2.4M13 9.4C13.9 8 15 7 16.5 7H20"/><path d="m17.5 4.5 2.5 2.5-2.5 2.5M17.5 14.5l2.5 2.5-2.5 2.5"/>`),
+  pause: svg(`<path d="M9 6v12M15 6v12"/>`),
+  play: svg(`<path d="M8 5.5v13l10.5-6.5z"/>`),
+  download: svg(`<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>`),
+  upload: svg(`<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>`),
+  moon: svg(`<path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/>`),
+  fullscreen: svg(`<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>`),
+  sound: svg(`<path d="M5 9.5h3l4.5-4v13L8 14.5H5z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>`),
+  page: svg(`<path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/>`),
 };
 
 export const GAME_ICONS: Record<string, string> = {

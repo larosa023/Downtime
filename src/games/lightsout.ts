@@ -28,8 +28,13 @@ export const lightsout: GameModule = {
         { value: "small", label: "5×5" },
         { value: "medium", label: "6×6" },
         { value: "large", label: "7×7" },
+        { value: "huge", label: "8×8" },
       ],
     },
+  ],
+  keys: [
+    ["Arrow keys", "Move the cursor"],
+    ["Space or Enter", "Press the light under the cursor"],
   ],
   statsKey: (o) => `lightsout:${o("size")}`,
   load: () => import("./impl/lightsout"),

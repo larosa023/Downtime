@@ -1,11 +1,11 @@
 import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordScore, recordStart } from "../../core/stats";
 import { sfx } from "../../core/sound";
+import { GameLoop, fitCanvas, watchDpr } from "./arcade-loop";
 
 // Logical field; the canvas scales it to fit.
 const FW = 900;
 const FH = 560;
-const STEP = 1 / 120;
 const SHIP_R = 13;
 const TURN = 4.2; // radians per second
 const THRUST = 380;
@@ -17,6 +17,7 @@ const SHOT_GAP = 0.18;
 const MAX_SHOTS = 5;
 const SIZES = [0, 14, 26, 44]; // radius by rock size 1..3
 const POINTS = [0, 100, 50, 20];
+const HYPER_GAP = 2.5; // seconds between jumps
 
 interface Rock {
   x: number;
@@ -66,14 +67,18 @@ class Rocks implements GameInstance {
   private thrusting = false;
   private state: "ready" | "playing" | "paused" | "over" = "ready";
   private keys = new Set<string>();
-  private acc = 0;
-  private last = 0;
-  private raf = 0;
+  private loop: GameLoop;
+  private hyperCd = 0;
+  private banner = 0;
+  private shellPaused = false;
+  private resumeAfterShell = false;
+  private offDpr: () => void;
   private colors: Record<string, string> = {};
   private resizeObs: ResizeObserver;
   private themeObs: MutationObserver;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.loop = new GameLoop({ hz: 120, step: (dt) => this.tick(dt), draw: () => this.draw() });
     this.wrapEl = document.createElement("div");
     this.wrapEl.className = "breakout";
     this.canvas = document.createElement("canvas");
@@ -89,12 +94,42 @@ class Rocks implements GameInstance {
     window.addEventListener("blur", this.onBlur);
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.wrapEl);
-    this.themeObs = new MutationObserver(() => this.readColors());
-    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    this.themeObs = new MutationObserver(() => {
+      this.readColors();
+      this.loop.redraw();
+    });
+    this.themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+    this.offDpr = watchDpr(() => this.resize());
     this.readColors();
     this.newGame();
-    this.last = performance.now();
-    this.raf = requestAnimationFrame(this.frame);
+  }
+
+  inProgress() {
+    return this.state === "playing" || this.state === "paused";
+  }
+
+  setPaused(paused: boolean) {
+    if (paused === this.shellPaused) return;
+    this.shellPaused = paused;
+    if (paused) {
+      this.resumeAfterShell = this.state === "playing";
+      if (this.state === "playing") this.pause();
+    } else if (this.resumeAfterShell && this.state === "paused") {
+      this.resumeAfterShell = false;
+      this.resume();
+    }
+  }
+
+  private tick(dt: number) {
+    if (this.state === "playing") this.update(dt);
+    else if (this.state === "over") {
+      // Let the last explosion fade, then sleep.
+      this.drift(dt);
+      if (!this.sparks.length) {
+        this.loop.stop();
+        this.loop.redraw();
+      }
+    }
   }
 
   newGame() {
@@ -108,15 +143,21 @@ class Rocks implements GameInstance {
     this.resetShip();
     this.ship.invuln = 0;
     this.spawnWave(true);
+    this.loop.stop();
+    this.hyperCd = 0;
+    this.banner = 0;
+    this.resumeAfterShell = false;
     this.state = "ready";
     this.ctx.clearEnd();
     this.ctx.setUndo(false);
-    this.show("Press Space to start", "← → turn · ↑ thrust · Space shoot · P pause");
+    this.show("Press Space to start", "← → turn · ↑ thrust · Space shoot · ↓ or Shift hyperspace · Esc pause");
     this.status();
+    this.loop.redraw();
   }
 
   destroy() {
-    cancelAnimationFrame(this.raf);
+    this.loop.stop();
+    this.offDpr();
     window.removeEventListener("keydown", this.onDown);
     window.removeEventListener("keyup", this.onUp);
     window.removeEventListener("blur", this.onBlur);
@@ -128,12 +169,9 @@ class Rocks implements GameInstance {
   resize() {
     const r = this.wrapEl.getBoundingClientRect();
     const scale = Math.max(0.2, Math.min((r.width - 40) / FW, (r.height - 40) / FH));
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.style.width = `${FW * scale}px`;
-    this.canvas.style.height = `${FH * scale}px`;
-    this.canvas.width = Math.round(FW * scale * dpr);
-    this.canvas.height = Math.round(FH * scale * dpr);
+    const dpr = fitCanvas(this.canvas, FW * scale, FH * scale);
     this.g.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    this.loop.redraw();
   }
 
   private readColors() {
@@ -184,47 +222,69 @@ class Rocks implements GameInstance {
       } while (Math.hypot(x - this.ship.x, y - this.ship.y) < 190);
       this.rocks.push(this.makeRock(x, y, 3));
     }
-    if (!first) this.ctx.toast(`Wave ${this.wave}`);
+    if (!first) this.banner = 1.6;
     this.status();
   }
 
   private onBlur = () => {
     this.keys.clear();
-    if (this.state === "playing") this.pause();
   };
 
   private pause() {
     this.state = "paused";
-    this.show("Paused", "Press P or Esc to keep going");
+    this.keys.clear();
+    this.loop.stop();
+    this.loop.redraw();
+    this.show("Paused", "Press Esc or Space to keep going");
   }
 
   private resume() {
     this.state = "playing";
     this.hide();
-    this.last = performance.now();
+    this.loop.start();
+  }
+
+  private hyperspace() {
+    const s = this.ship;
+    if (!s.alive || this.hyperCd > 0) return;
+    this.hyperCd = HYPER_GAP;
+    this.burst(s.x, s.y, 14, this.colors.accent, 120);
+    // Try for a spot away from rocks, but there are no promises.
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < 12; i++) {
+      x = 40 + Math.random() * (FW - 80);
+      y = 40 + Math.random() * (FH - 80);
+      if (!this.rocks.some((r) => Math.hypot(r.x - x, r.y - y) < SIZES[r.size] + 70)) break;
+    }
+    Object.assign(s, { x, y, vx: 0, vy: 0, invuln: Math.max(s.invuln, 0.3) });
+    this.burst(x, y, 14, this.colors.accent, 120);
+    sfx.flip();
   }
 
   private onDown = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
     const k = e.code;
-    const handled = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyA", "KeyD", "KeyW", "KeyS", "Space", "KeyP", "Escape"];
+    const handled = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyA", "KeyD", "KeyW", "KeyS", "Space", "Escape", "ShiftLeft", "ShiftRight"];
     if (!handled.includes(k)) return;
     e.preventDefault();
-    if (this.state === "over") return;
-    if (k === "KeyP" || k === "Escape") {
+    if (this.state === "over" || this.shellPaused) return;
+    if (k === "Escape") {
       if (this.state === "playing") this.pause();
       else if (this.state === "paused") this.resume();
       return;
     }
     if (this.state === "ready") {
       recordStart("asteroids");
-      this.state = "playing";
-      this.hide();
-      this.last = performance.now();
+      this.resume();
       return;
     }
     if (this.state === "paused") {
       if (k === "Space") this.resume();
+      return;
+    }
+    if (k === "ArrowDown" || k === "KeyS" || k === "ShiftLeft" || k === "ShiftRight") {
+      if (!e.repeat) this.hyperspace();
       return;
     }
     this.keys.add(k);
@@ -232,23 +292,6 @@ class Rocks implements GameInstance {
 
   private onUp = (e: KeyboardEvent) => {
     this.keys.delete(e.code);
-  };
-
-  private frame = (now: number) => {
-    this.raf = requestAnimationFrame(this.frame);
-    const dt = Math.min((now - this.last) / 1000, 0.1);
-    this.last = now;
-    if (this.state === "playing") {
-      this.acc += dt;
-      while (this.acc >= STEP) {
-        this.update(STEP);
-        this.acc -= STEP;
-      }
-    } else {
-      this.acc = 0;
-      if (this.state === "ready" || this.state === "over") this.drift(dt);
-    }
-    this.draw();
   };
 
   /** Rocks keep floating behind the start and end screens. */
@@ -284,6 +327,8 @@ class Rocks implements GameInstance {
     const s = this.ship;
     const k = this.keys;
     this.cooldown -= dt;
+    this.hyperCd = Math.max(0, this.hyperCd - dt);
+    this.banner = Math.max(0, this.banner - dt);
     if (s.alive) {
       const turn = (k.has("ArrowRight") || k.has("KeyD") ? 1 : 0) - (k.has("ArrowLeft") || k.has("KeyA") ? 1 : 0);
       s.a += turn * TURN * dt;
@@ -395,6 +440,7 @@ class Rocks implements GameInstance {
     this.status();
     if (this.lives <= 0) {
       this.state = "over";
+      this.keys.clear();
       const { newBest } = recordScore("asteroids", this.score);
       this.ctx.end({
         won: false,
@@ -489,14 +535,38 @@ class Rocks implements GameInstance {
       }
     }
 
-    // Lives and wave
+    // Lives: up to five ship icons, then a count.
     g.strokeStyle = c.muted;
     g.lineWidth = 1.6;
-    for (let i = 0; i < Math.max(0, this.lives); i++) this.drawShip(26 + i * 24, 30, -Math.PI / 2, 0.75);
+    const lives = Math.max(0, this.lives);
+    for (let i = 0; i < Math.min(lives, 5); i++) this.drawShip(26 + i * 24, 30, -Math.PI / 2, 0.75);
     g.fillStyle = c.muted;
     g.font = `600 15px "Figtree Variable", sans-serif`;
+    if (lives > 5) {
+      g.textAlign = "left";
+      g.fillText(`×${lives}`, 26 + 5 * 24 - 4, 35);
+    }
     g.textAlign = "right";
-    g.fillText(`Wave ${this.wave}`, FW - 20, 35);
+    g.fillText(`Wave ${this.wave} · ${this.rocks.length} ${this.rocks.length === 1 ? "rock" : "rocks"}`, FW - 20, 35);
+
+    // Hyperspace charge
+    if (this.state === "playing" && s.alive) {
+      const ready = 1 - this.hyperCd / HYPER_GAP;
+      g.fillStyle = c.line;
+      g.fillRect(20, FH - 22, 80, 4);
+      g.fillStyle = ready >= 1 ? c.accent : c.muted;
+      g.fillRect(20, FH - 22, 80 * ready, 4);
+    }
+
+    // New wave banner
+    if (this.banner > 0) {
+      g.globalAlpha = Math.min(1, this.banner * 1.5);
+      g.fillStyle = c.ink;
+      g.font = `700 44px "Bricolage Grotesque Variable", sans-serif`;
+      g.textAlign = "center";
+      g.fillText(`Wave ${this.wave}`, FW / 2, FH / 2 - 60);
+      g.globalAlpha = 1;
+    }
   }
 
   private status() {
