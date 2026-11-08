@@ -1,6 +1,17 @@
 import { allStats, GameStats } from "./stats";
 import { dailyLog, dailyStreak } from "./daily";
 import { load, save } from "./storage";
+import { GAMES } from "../games";
+
+// One-off things the player did that stats don't capture (used a custom theme, made a backup).
+type Flags = Record<string, number>;
+let flags: Flags = load<Flags>("flags", {});
+export function setFlag(id: string): void {
+  if (flags[id]) return;
+  flags = { ...flags, [id]: Date.now() };
+  save("flags", flags);
+}
+const flag = (id: string) => !!flags[id];
 
 export interface Achievement {
   id: string;
@@ -27,6 +38,20 @@ const fastest = (key: string, seconds: number) => {
 };
 const distinctWins = (ids: string[]) => ids.filter((id) => won(id)).length;
 const anyStreak = (n: number) => Object.values(allStats()).some((s) => s.bestStreak >= n);
+
+const totalTime = () => Object.values(allStats()).reduce((n, s) => n + (s.timePlayed ?? 0), 0);
+const idsWith = (pred: (s: GameStats) => boolean) =>
+  new Set(Object.entries(allStats()).filter(([, s]) => pred(s)).map(([k]) => k.split(":")[0]));
+const groupPlayed = (): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const [k, s] of Object.entries(allStats())) {
+    const g = GAMES.find((x) => x.id === k.split(":")[0])?.group;
+    if (g) out[g] = (out[g] ?? 0) + s.played;
+  }
+  return out;
+};
+const lateWin = () =>
+  Object.values(allStats()).some((s) => (s.history ?? []).some((h) => h.won === true && new Date(h.at).getHours() < 4));
 
 const CARD_GAMES = ["spider", "freecell", "tripeaks", "pyramid", "golf", "yukon", "scorpion", "fortythieves", "canfield"];
 const BOARD_GAMES = ["checkers", "reversi", "chess", "connect4"];
@@ -91,6 +116,21 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "daily-all", name: "Clean sweep", desc: "Finish every daily puzzle on the same day.", test: () => Object.values(dailyLog()).some((d) => d.length >= 4) },
   { id: "daily-7", name: "A week straight", desc: "Finish a daily puzzle 7 days in a row.", test: () => dailyStreak() >= 7 },
   { id: "daily-30", name: "A month straight", desc: "Finish a daily puzzle 30 days in a row.", test: () => dailyStreak() >= 30 },
+  { id: "daily-50", name: "Fifty days", desc: "Finish daily puzzles on 50 different days.", test: () => Object.values(dailyLog()).filter((d) => d.length > 0).length >= 50 },
+
+  // Time and habits
+  { id: "time-1h", name: "An hour well spent", desc: "Play for an hour in total.", test: () => totalTime() >= 3600 },
+  { id: "time-10h", name: "Ten hours in", desc: "Play for 10 hours in total.", test: () => totalTime() >= 36000 },
+  { id: "time-50h", name: "Part of the furniture", desc: "Play for 50 hours in total.", test: () => totalTime() >= 180000 },
+  { id: "tourist", name: "Tourist", desc: "Play every game at least once.", test: () => GAMES.every((g) => idsWith((s) => s.played > 0).has(g.id)) },
+  { id: "all-rounder", name: "All-rounder", desc: "Win 20 different games.", test: () => idsWith((s) => s.won > 0).size >= 20 },
+  { id: "specialist", name: "Specialist", desc: "Play 50 games from one group.", test: () => Object.values(groupPlayed()).some((n) => n >= 50) },
+  { id: "fixture", name: "Fixture", desc: "Play 500 games in total.", test: () => Object.values(allStats()).reduce((n, s) => n + s.played, 0) >= 500 },
+  { id: "night-owl", name: "Night owl", desc: "Win a game between midnight and 4 a.m.", test: lateWin },
+
+  // Making it yours
+  { id: "decorator", name: "Interior design", desc: "Make your own theme.", test: () => flag("custom-theme") },
+  { id: "backup", name: "Belt and braces", desc: "Save a backup of your data.", test: () => flag("backup") },
 ];
 
 type Unlocked = Record<string, number>; // id -> timestamp

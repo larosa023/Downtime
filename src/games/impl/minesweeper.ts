@@ -2,12 +2,13 @@ import { GameContext, GameInstance } from "../../core/types";
 import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { animScale, motionEnabled } from "../../core/settings";
 
 const LEVELS: Record<string, { cols: number; rows: number; mines: number }> = {
   easy: { cols: 9, rows: 9, mines: 10 },
   medium: { cols: 16, rows: 16, mines: 40 },
   hard: { cols: 30, rows: 16, mines: 99 },
+  huge: { cols: 30, rows: 24, mines: 150 },
 };
 
 const FLAG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 4h10l-3 4 3 4H8z" fill="currentColor"/></svg>`;
@@ -21,6 +22,11 @@ class Minesweeper implements GameInstance {
   private counts: number[] = [];
   private open: boolean[] = [];
   private flags: boolean[] = [];
+  /** Question marks (only used when the marks option is on). */
+  private marks: boolean[] = [];
+  private paused = false;
+  private noGuess: boolean;
+  private useMarks: boolean;
   private placed = false;
   private over = false;
   private cols: number;
@@ -33,6 +39,8 @@ class Minesweeper implements GameInstance {
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.level = ctx.option("level") in LEVELS ? ctx.option("level") : "easy";
     ({ cols: this.cols, rows: this.rows, mines: this.mineCount } = LEVELS[this.level]);
+    this.noGuess = ctx.option("guess") === "noguess";
+    this.useMarks = ctx.option("marks") === "on";
     this.el = document.createElement("div");
     this.el.className = "mines";
     this.grid = document.createElement("div");
@@ -59,6 +67,7 @@ class Minesweeper implements GameInstance {
     this.counts = Array(n).fill(0);
     this.open = Array(n).fill(false);
     this.flags = Array(n).fill(false);
+    this.marks = Array(n).fill(false);
     this.placed = false;
     this.over = false;
     this.timer.reset();
@@ -85,6 +94,14 @@ class Minesweeper implements GameInstance {
     this.grid.style.setProperty("--size", `${Math.max(size, 16)}px`);
   }
 
+  inProgress() {
+    return this.placed && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
   destroy() {
     this.timer.destroy();
     this.resizeObs.disconnect();
@@ -105,25 +122,111 @@ class Minesweeper implements GameInstance {
     return out;
   }
 
-  /** Mines are placed after the first click so it's always safe and opens an area. */
+  /** Mines are placed after the first click so it's always safe and opens an area.
+   *  With "No guessing" on, boards are regenerated until logic alone can clear them. */
   private place(safe: number) {
     const keepClear = new Set([safe, ...this.neighbors(safe)]);
-    const pool = [...Array(this.cols * this.rows).keys()].filter((i) => !keepClear.has(i));
-    for (let k = 0; k < this.mineCount; k++) {
-      const j = k + Math.floor(Math.random() * (pool.length - k));
-      [pool[k], pool[j]] = [pool[j], pool[k]];
-      this.mines[pool[k]] = true;
+    const n = this.cols * this.rows;
+    const deadline = performance.now() + (this.noGuess ? 600 : 0);
+    let tries = 0;
+    for (;;) {
+      tries++;
+      this.mines = Array(n).fill(false);
+      const pool = [...Array(n).keys()].filter((i) => !keepClear.has(i));
+      for (let k = 0; k < this.mineCount; k++) {
+        const j = k + Math.floor(Math.random() * (pool.length - k));
+        [pool[k], pool[j]] = [pool[j], pool[k]];
+        this.mines[pool[k]] = true;
+      }
+      for (let i = 0; i < n; i++) this.counts[i] = this.neighbors(i).filter((x) => this.mines[x]).length;
+      if (!this.noGuess || this.solvable(safe) || performance.now() > deadline) break;
     }
-    for (let i = 0; i < this.mines.length; i++)
-      this.counts[i] = this.neighbors(i).filter((n) => this.mines[n]).length;
+    if (this.noGuess && tries > 1 && performance.now() > deadline && !this.solvable(safe))
+      this.ctx.toast("Couldn't find a guess-free board in time. This one may need a guess.");
     this.placed = true;
     recordStart(this.key);
     this.timer.start();
   }
 
+  /** Whether the board can be cleared from the first click using only deduction. */
+  private solvable(start: number): boolean {
+    const n = this.cols * this.rows;
+    const open = new Uint8Array(n);
+    const mine = new Uint8Array(n);
+    let opened = 0;
+    const safeTotal = n - this.mineCount;
+    const reveal = (i: number) => {
+      const q = [i];
+      while (q.length) {
+        const k = q.pop()!;
+        if (open[k]) continue;
+        open[k] = 1;
+        opened++;
+        if (this.counts[k] === 0) for (const x of this.neighbors(k)) if (!open[x]) q.push(x);
+      }
+    };
+    reveal(start);
+    const nb = Array.from({ length: n }, (_, i) => this.neighbors(i));
+    let progress = true;
+    while (progress && opened < safeTotal) {
+      progress = false;
+      // Frontier: open numbers with unknown neighbors.
+      const front: { u: number[]; rem: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        if (!open[i] || this.counts[i] === 0) continue;
+        const u: number[] = [];
+        let m = 0;
+        for (const x of nb[i]) {
+          if (mine[x]) m++;
+          else if (!open[x]) u.push(x);
+        }
+        if (!u.length) continue;
+        const rem = this.counts[i] - m;
+        if (rem === 0) {
+          u.forEach(reveal);
+          progress = true;
+        } else if (rem === u.length) {
+          u.forEach((x) => (mine[x] = 1));
+          progress = true;
+        } else front.push({ u, rem });
+      }
+      if (progress) continue;
+      // Subset rule: if A's unknowns sit inside B's, the difference holds rem(B) − rem(A) mines.
+      for (let a = 0; a < front.length && !progress; a++) {
+        const A = front[a];
+        const setA = new Set(A.u);
+        for (let b = 0; b < front.length; b++) {
+          if (a === b) continue;
+          const B = front[b];
+          if (B.u.length <= A.u.length || !A.u.every((x) => B.u.includes(x))) continue;
+          const diff = B.u.filter((x) => !setA.has(x));
+          const d = B.rem - A.rem;
+          if (d === 0) {
+            diff.forEach(reveal);
+            progress = true;
+          } else if (d === diff.length) {
+            diff.forEach((x) => (mine[x] = 1));
+            progress = true;
+          }
+          if (progress) break;
+        }
+      }
+      if (!progress) {
+        // Global count: if every remaining mine is accounted for, the rest are safe.
+        let known = 0;
+        for (let i = 0; i < n; i++) known += mine[i];
+        if (known === this.mineCount) {
+          for (let i = 0; i < n; i++) if (!open[i] && !mine[i]) reveal(i);
+          progress = true;
+        }
+      }
+    }
+    return opened >= safeTotal;
+  }
+
   private onPointer = (e: PointerEvent) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>(".cell");
-    if (!t || this.over) return;
+    if (!t || this.over || this.paused) return;
     const i = Number(t.dataset.i);
     if (e.button === 2 || (e.button === 0 && (e.ctrlKey || e.altKey))) this.toggleFlag(i);
     else if (e.button === 0 || e.button === 1) {
@@ -134,7 +237,12 @@ class Minesweeper implements GameInstance {
 
   private toggleFlag(i: number) {
     if (this.open[i] || !this.placed) return;
-    this.flags[i] = !this.flags[i];
+    // Cycle: blank → flag → question mark (when marks are on) → blank.
+    if (this.flags[i]) {
+      this.flags[i] = false;
+      this.marks[i] = this.useMarks;
+    } else if (this.marks[i]) this.marks[i] = false;
+    else this.flags[i] = true;
     this.paint(i);
     sfx.flag();
     this.status();
@@ -176,7 +284,8 @@ class Minesweeper implements GameInstance {
       if (this.open[k] || this.flags[k]) continue;
       this.open[k] = true;
       const dist = Math.hypot((k % this.cols) - ox, Math.floor(k / this.cols) - oy);
-      this.paint(k, animate ? Math.min(dist * 18, 400) : 0);
+      this.marks[k] = false;
+      this.paint(k, animate ? Math.min(dist * 18 * animScale(), 400) : 0);
       if (this.counts[k] === 0) for (const n of this.neighbors(k)) if (!this.open[n] && !this.mines[n]) queue.push(n);
     }
     if (sound) sfx.tick();
@@ -192,8 +301,8 @@ class Minesweeper implements GameInstance {
       c.dataset.n = String(n);
       c.textContent = n ? String(n) : "";
     } else {
-      c.className = this.flags[i] ? "cell flagged" : "cell";
-      c.innerHTML = this.flags[i] ? FLAG : "";
+      c.className = this.flags[i] ? "cell flagged" : this.marks[i] ? "cell marked" : "cell";
+      c.innerHTML = this.flags[i] ? FLAG : this.marks[i] ? "?" : "";
     }
   }
 
@@ -208,7 +317,7 @@ class Minesweeper implements GameInstance {
     this.mines.forEach((m, i) => {
       const c = this.cells[i];
       if (m && !this.flags[i]) {
-        const d = animate ? Math.hypot((i % this.cols) - hx, Math.floor(i / this.cols) - hy) * 35 : 0;
+        const d = animate ? Math.hypot((i % this.cols) - hx, Math.floor(i / this.cols) - hy) * 35 * animScale() : 0;
         c.className = `cell mine${i === hit ? " hit" : ""}`;
         c.style.animationDelay = `${d}ms`;
         c.innerHTML = MINE;

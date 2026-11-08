@@ -71,6 +71,11 @@
 @keyframes plant {
   from { transform: scale(0.7); }
 }
+.cell.marked {
+  color: var(--muted, var(--ink));
+  font-weight: 700;
+  opacity: 0.8;
+}
 .cell.mine {
   background: color-mix(in oklab, var(--danger) 22%, var(--cell-open));
   color: var(--ink);
@@ -138,13 +143,13 @@
 }
 .g2048-board {
   --gap: calc(var(--board) * 0.028);
-  --tile: calc((var(--board) - var(--gap) * 5) / 4);
+  --tile: calc((var(--board) - var(--gap) * (var(--n, 4) + 1)) / var(--n, 4));
   position: relative;
   width: var(--board);
   height: var(--board);
   padding: var(--gap);
   display: grid;
-  grid-template-columns: repeat(4, var(--tile));
+  grid-template-columns: repeat(var(--n, 4), var(--tile));
   gap: var(--gap);
   border-radius: calc(var(--board) * 0.035);
   background: color-mix(in oklab, var(--bg) 55%, transparent);
@@ -173,7 +178,7 @@
   font-size: calc(var(--tile) * 0.4);
   letter-spacing: -0.03em;
   transform: translate(calc(var(--c) * (var(--tile) + var(--gap))), calc(var(--r) * (var(--tile) + var(--gap))));
-  transition: transform 0.11s ease-in-out;
+  transition: transform calc(0.11s * var(--speed, 1)) ease-in-out;
   --t: 15%;
   background: color-mix(in oklab, var(--accent) var(--t), var(--surface));
   color: var(--ink);
@@ -181,6 +186,9 @@
 }
 .g2048-tile.small {
   font-size: calc(var(--tile) * 0.3);
+}
+.g2048-tile.tiny {
+  font-size: calc(var(--tile) * 0.24);
 }
 .g2048-tile.spawn {
   animation: tile-in 0.2s var(--ease) 0.06s both;
@@ -287,6 +295,9 @@
 .sdk-cell.same {
   background: color-mix(in oklab, var(--accent) 22%, transparent);
 }
+.sdk-cell.has-note .sdk-notes i:not(:empty) {
+  color: var(--ink);
+}
 .sdk-cell.sel {
   background: color-mix(in oklab, var(--accent) 34%, transparent);
 }
@@ -322,9 +333,13 @@
 
 .sdk-pad {
   display: grid;
-  grid-template-columns: repeat(9, 1fr) auto auto;
+  grid-template-columns: repeat(9, 1fr);
   gap: 8px;
   width: var(--grid);
+}
+.sudoku:not(.wide) .sdk-tool {
+  grid-column: span 3;
+  height: 40px;
 }
 .sudoku.wide .sdk-pad {
   grid-template-columns: repeat(3, 64px);
@@ -412,8 +427,8 @@
   --depth: calc(var(--tw) * 0.1);
   --tile: var(--card);
   position: relative;
-  width: calc(var(--tw) * 12 + var(--depth) * 3);
-  height: calc(var(--th) * 6.5 + var(--depth) * 3);
+  width: calc(var(--tw) * var(--bw, 12) + var(--depth) * 3);
+  height: calc(var(--th) * var(--bh, 6.5) + var(--depth) * 3);
 }
 .mj-tile {
   position: absolute;
@@ -554,6 +569,32 @@
 .ng-clue.done {
   color: var(--muted);
   opacity: 0.55;
+}
+.ng-clue.hover {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+}
+.ng-grid {
+  position: relative;
+}
+.ng-grid.hovering::before,
+.ng-grid.hovering::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+  z-index: 1;
+}
+.ng-grid.hovering::before {
+  left: 0;
+  right: 0;
+  top: calc(var(--hr) * var(--cell));
+  height: var(--cell);
+}
+.ng-grid.hovering::after {
+  top: 0;
+  bottom: 0;
+  left: calc(var(--hc) * var(--cell));
+  width: var(--cell);
 }
 .ng-grid {
   display: grid;

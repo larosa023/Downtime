@@ -129,6 +129,14 @@ export function resetStats(prefix?: string) {
   persist();
 }
 
+/** Remove exactly one stats key (one game variant). */
+export function resetStatsKey(key: string) {
+  const { [key]: _gone, ...rest } = all;
+  void _gone;
+  all = rest;
+  persist();
+}
+
 /** Reload from storage (after importing a backup). */
 export function reloadStats() {
   all = load<AllStats>("stats", {});

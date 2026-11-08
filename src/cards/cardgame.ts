@@ -2,7 +2,8 @@ import { Card } from "./deck";
 import { CardTable, Pile, TableLayout } from "./table";
 import { GameContext, GameInstance } from "../core/types";
 import { GameTimer } from "../core/timer";
-import { formatTime, recordLoss, recordStart, recordWin } from "../core/stats";
+import { formatTime, recordLoss, recordScore, recordStart, recordWin } from "../core/stats";
+import { animScale, getSettings, motionEnabled } from "../core/settings";
 import { load, remove, save } from "../core/storage";
 import { sfx } from "../core/sound";
 
@@ -31,6 +32,13 @@ export abstract class CardGame implements GameInstance {
   protected over = false;
   private counted = false;
   private busy = 0;
+  private paused = false;
+  private celebrateTimers: number[] = [];
+  private endTimer = 0;
+  /** Games whose foundations follow the Auto-move setting. */
+  protected usesAutoMove = false;
+  /** Games where clicking a card sends it somewhere (follows the Click-to-move setting). */
+  protected sendsOnTap = false;
 
   constructor(
     protected root: HTMLElement,
@@ -44,8 +52,12 @@ export abstract class CardGame implements GameInstance {
       canPick: (p, i) => !this.locked && this.canPick(p, i),
       canDrop: (f, i, t) => this.canDrop(f, i, t),
       drop: (f, i, t) => this.userMove(f, i, t),
-      tap: (p, i) => {
-        if (!this.locked) this.tap(p, i);
+      tap: (p, i, double) => {
+        if (this.locked) return;
+        // With click-to-move off, a single click on a card does nothing; a double-click still sends it.
+        if (this.sendsOnTap && !double && i >= 0 && p.kind !== "stock" && !getSettings().clickToMove) return;
+        if (this.sendsOnTap && double && getSettings().clickToMove) return; // the first click already moved it
+        this.tap(p, i);
       },
       wasteFan: () => this.wasteFan(),
       isSelected: (c) => this.isSelected(c),
@@ -93,11 +105,22 @@ export abstract class CardGame implements GameInstance {
   protected extraStatus(): { label: string; value: string }[] {
     return [];
   }
+  /** Current score for games with classic scoring, or null. Shown in the status bar and kept as a best score. */
+  protected score(): number | null {
+    return null;
+  }
 
   // ----- lifecycle -----
 
   newGame() {
-    if (this.counted && !this.over) recordLoss(this.statsKey());
+    if (this.counted && !this.over) {
+      recordLoss(this.statsKey());
+      this.recordFinalScore();
+    }
+    this.stopCelebration();
+    clearTimeout(this.endTimer);
+    clearTimeout(this.busy);
+    this.busy = 0;
     this.counted = false;
     this.over = false;
     this.moves = 0;
@@ -113,7 +136,7 @@ export abstract class CardGame implements GameInstance {
   }
 
   undo() {
-    if (this.busy) return;
+    if (this.busy || this.paused) return;
     if (this.locked && !this.over) return;
     const snap = this.history.pop();
     if (!snap) return;
@@ -130,6 +153,9 @@ export abstract class CardGame implements GameInstance {
   }
 
   destroy() {
+    this.stopCelebration();
+    clearTimeout(this.endTimer);
+    clearTimeout(this.busy);
     this.persist();
     this.timer.destroy();
     this.table.destroy();
@@ -137,6 +163,23 @@ export abstract class CardGame implements GameInstance {
 
   resize() {
     this.table.render({ instant: true, relayout: true });
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    this.table.setPaused(paused);
+    // Resume any automatic moves that were waiting.
+    if (!paused && !this.over && !this.busy) this.runAutoplay();
+  }
+
+  inProgress(): boolean {
+    return this.counted && !this.over && this.moves > 0;
+  }
+
+  /** Milliseconds scaled by the animation speed setting. */
+  protected ms(base: number): number {
+    const k = animScale();
+    return Math.round(base * (k || 0.4));
   }
 
   // ----- helpers for subclasses -----
@@ -222,7 +265,7 @@ export abstract class CardGame implements GameInstance {
   }
 
   requestHint() {
-    if (this.locked) return;
+    if (this.locked || !getSettings().hints) return;
     const best = this.findMoves()[0];
     if (best) {
       const target = best.to.cards[best.to.cards.length - 1];
@@ -263,6 +306,10 @@ export abstract class CardGame implements GameInstance {
     this.checkpoint();
     this.ctx.setFinish(false);
     const step = () => {
+      if (this.paused) {
+        this.busy = window.setTimeout(step, 200);
+        return;
+      }
       const m = this.over ? null : this.nextFoundationMove();
       if (!m) {
         this.busy = 0;
@@ -277,7 +324,7 @@ export abstract class CardGame implements GameInstance {
       this.status();
       this.persist();
       this.checkWin();
-      this.busy = window.setTimeout(step, 70);
+      this.busy = window.setTimeout(step, this.ms(70));
     };
     step();
   }
@@ -287,8 +334,9 @@ export abstract class CardGame implements GameInstance {
     this.over = true;
     this.timer.stop();
     recordLoss(this.statsKey());
+    this.recordFinalScore();
     this.status();
-    setTimeout(() => {
+    this.endTimer = window.setTimeout(() => {
       if (!this.over) return;
       sfx.lose();
       this.ctx.end({ won: false, title: "No moves left", lines: ["Undo to try a different path, or deal again."] });
@@ -299,7 +347,11 @@ export abstract class CardGame implements GameInstance {
     // Step through automatic moves one at a time so each one animates.
     if (this.busy) return;
     const step = () => {
-      if (this.over || !this.autoplay()) {
+      if (this.paused) {
+        this.busy = 0;
+        return;
+      }
+      if (this.over || !this.autoStep()) {
         this.busy = 0;
         return;
       }
@@ -309,13 +361,39 @@ export abstract class CardGame implements GameInstance {
       this.status();
       this.persist();
       this.checkWin();
-      this.busy = window.setTimeout(step, 110);
+      this.busy = window.setTimeout(step, this.ms(110));
     };
-    this.busy = window.setTimeout(step, 160);
+    this.busy = window.setTimeout(step, this.ms(160));
+  }
+
+  /** One automatic move, following the Auto-move setting for games with foundations. */
+  private autoStep(): boolean {
+    if (!this.usesAutoMove) return this.autoplay();
+    const mode = getSettings().autoMove;
+    if (mode === "off") return false;
+    if (mode === "all") {
+      for (const from of this.piles) {
+        if (from.kind === "foundation" || from.kind === "stock" || !from.cards.length) continue;
+        const i = from.cards.length - 1;
+        if (!from.cards[i].up || !this.canPick(from, i)) continue;
+        const to = this.piles.find((p) => p.kind === "foundation" && this.canDrop(from, i, p));
+        if (to) {
+          this.transfer(from, i, to);
+          this.moves += 1;
+          return true;
+        }
+      }
+    }
+    return this.autoplay();
   }
 
   protected get locked() {
-    return this.over;
+    return this.over || this.paused;
+  }
+
+  private recordFinalScore() {
+    const sc = this.score();
+    if (sc != null && sc > 0) recordScore(this.statsKey(), sc);
   }
 
   private checkWin() {
@@ -324,41 +402,73 @@ export abstract class CardGame implements GameInstance {
     this.timer.stop();
     const seconds = Math.round(this.timer.seconds);
     const { newBestTime } = recordWin(this.statsKey(), seconds);
+    const sc = this.score();
+    const best = sc != null && sc > 0 ? recordScore(this.statsKey(), sc).newBest : false;
     remove(this.saveKey);
+    this.onWin();
     sfx.win();
-    this.celebrate();
-    setTimeout(
+    const long = this.celebrate();
+    this.endTimer = window.setTimeout(
       () =>
         this.ctx.end({
           won: true,
           title: "Solved",
           lines: [
             `${formatTime(seconds)}${newBestTime ? " — a new best" : ""}`,
-            `${this.moves} moves`,
+            `${this.moves} moves${sc != null ? `, score ${sc}${best ? " (best)" : ""}` : ""}`,
           ],
         }),
-      700,
+      long ? 1500 : 700,
     );
   }
 
-  /** A short cascade of the foundation cards. */
-  private celebrate() {
-    const cards = this.piles.filter((p) => p.kind === "foundation").flatMap((p) => p.cards);
-    cards.forEach((c, i) => {
+  /** Hook for games that do something extra on a win (e.g. mark a daily deal done). */
+  protected onWin(): void {}
+
+  /** A short fountain of the winning cards. Returns false when skipped (setting or motion off). */
+  private celebrate(): boolean {
+    if (!getSettings().celebrate || !motionEnabled()) return false;
+    let cards = this.piles.filter((p) => p.kind === "foundation").flatMap((p) => p.cards);
+    // Games without foundations (TriPeaks, Golf, Pyramid) celebrate with the played pile.
+    if (!cards.length) cards = this.piles.filter((p) => p.kind === "waste").flatMap((p) => p.cards).slice(-26);
+    if (!cards.length) return false;
+    const w = this.table.el.clientWidth;
+    const k = animScale() || 1;
+    // Newest cards first, so the top of each stack leaves first.
+    const order = [...cards].reverse().slice(0, 52);
+    order.forEach((c, i) => {
       const el = this.table.cardEl(c);
-      if (!el) return;
-      setTimeout(() => {
-        el.classList.remove("bounce");
-        void el.offsetWidth;
-        el.classList.add("bounce");
-      }, (i % 13) * 40 + Math.floor(i / 13) * 25);
+      const pos = this.table.cardPos(c);
+      if (!el || !pos) return;
+      const t = (i / Math.max(1, order.length - 1)) * 2 - 1; // -1..1
+      const dx = t * w * 0.32 + (Math.random() - 0.5) * 40;
+      const dy = -(120 + Math.random() * 140);
+      el.style.setProperty("--fx", `${dx.toFixed(0)}px`);
+      el.style.setProperty("--fy", `${dy.toFixed(0)}px`);
+      el.style.setProperty("--fr", `${(t * 24 + (Math.random() - 0.5) * 16).toFixed(1)}deg`);
+      this.celebrateTimers.push(
+        window.setTimeout(() => el.classList.add("fountain"), Math.round(i * 18 * k)),
+        window.setTimeout(() => el.classList.remove("fountain"), Math.round((i * 18 + 1000) * k)),
+      );
     });
+    const skip = () => this.stopCelebration();
+    this.table.el.addEventListener("pointerdown", skip, { once: true });
+    this.celebrateTimers.push(window.setTimeout(() => this.table.el.removeEventListener("pointerdown", skip), 2000 * k));
+    return true;
+  }
+
+  private stopCelebration() {
+    this.celebrateTimers.forEach(clearTimeout);
+    this.celebrateTimers = [];
+    this.table.el.querySelectorAll(".fountain").forEach((e) => e.classList.remove("fountain"));
   }
 
   protected status() {
+    const sc = this.score();
     this.ctx.setStatus([
       { label: "Time", value: formatTime(this.timer.seconds) },
       { label: "Moves", value: String(this.moves) },
+      ...(sc != null ? [{ label: "Score", value: String(sc) }] : []),
       ...this.extraStatus(),
     ]);
     this.ctx.setUndo(this.history.length > 0 && !this.over);

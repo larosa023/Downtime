@@ -6,7 +6,7 @@ import { sfx } from "../../core/sound";
 import { dailyRng, dayNumber, todayKey } from "../../core/rng";
 import { markDailyDone } from "../../core/daily";
 
-const SIZES: Record<string, number> = { small: 5, medium: 10, large: 15 };
+const SIZES: Record<string, number> = { small: 5, medium: 10, large: 15, huge: 20 };
 const SAVE = "save:nonogram";
 
 // Cell states: 0 empty, 1 filled, 2 marked with an X.
@@ -98,7 +98,10 @@ function logicSolvable(rows: number[][], cols: number[][], size: number): boolea
 
 function generate(size: number, rng: () => number = Math.random) {
   let best: { rows: number[][]; cols: number[][] } | null = null;
+  // Practice boards stop searching after a moment; the daily puzzle never does, so it's the same everywhere.
+  const deadline = rng === Math.random ? performance.now() + 1500 : Infinity;
   for (let attempt = 0; attempt < 400; attempt++) {
+    if (best && performance.now() > deadline) break;
     const density = 0.55 + rng() * 0.1;
     const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => (rng() < density ? 1 : 0)));
     const rows = grid.map(cluesOf);
@@ -136,8 +139,14 @@ class Nonogram implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Cross out the rest of a line once its clue is met. */
+  private autoX: boolean;
+  private hoverR = -1;
+  private hoverC = -1;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.autoX = ctx.option("autox") !== "off";
     this.daily = ctx.option("mode") === "daily";
     this.level = ctx.option("size") in SIZES ? ctx.option("size") : "medium";
     if (this.daily) this.level = "medium";
@@ -193,6 +202,15 @@ class Nonogram implements GameInstance {
     this.persist();
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    if (paused) this.endStroke();
+  }
+
   destroy() {
     window.removeEventListener("pointerup", this.endStroke);
     this.persist();
@@ -239,6 +257,7 @@ class Nonogram implements GameInstance {
     }
     this.grid.addEventListener("pointerdown", this.startStroke);
     this.grid.addEventListener("pointermove", this.moveStroke);
+    this.grid.addEventListener("pointerleave", () => this.setHover(-1));
     this.resize();
     this.paint();
   }
@@ -248,8 +267,27 @@ class Nonogram implements GameInstance {
     return el && this.grid.contains(el) ? Number(el.dataset.i) : null;
   }
 
+  /** Light up the row and column under the pointer, clues included. */
+  private setHover(i: number) {
+    const n = this.size;
+    const r = i < 0 ? -1 : Math.floor(i / n);
+    const c = i < 0 ? -1 : i % n;
+    if (r === this.hoverR && c === this.hoverC) return;
+    const rowClues = this.el.querySelectorAll<HTMLElement>(".ng-clue.row");
+    const colClues = this.el.querySelectorAll<HTMLElement>(".ng-clue.col");
+    rowClues[this.hoverR]?.classList.remove("hover");
+    colClues[this.hoverC]?.classList.remove("hover");
+    this.hoverR = r;
+    this.hoverC = c;
+    rowClues[r]?.classList.add("hover");
+    colClues[c]?.classList.add("hover");
+    this.grid.style.setProperty("--hr", String(r));
+    this.grid.style.setProperty("--hc", String(c));
+    this.grid.classList.toggle("hovering", i >= 0);
+  }
+
   private startStroke = (e: PointerEvent) => {
-    if (this.over) return;
+    if (this.over || this.paused) return;
     const i = this.cellAt(e);
     if (i == null) return;
     e.preventDefault();
@@ -262,10 +300,33 @@ class Nonogram implements GameInstance {
   };
 
   private moveStroke = (e: PointerEvent) => {
-    if (!this.stroke) return;
+    const t = (e.target as HTMLElement).closest<HTMLElement>(".ng-cell");
+    if (!this.stroke) {
+      if (t && e.pointerType === "mouse") this.setHover(Number(t.dataset.i));
+      return;
+    }
     const i = this.cellAt(e);
-    if (i != null) this.apply(i);
+    if (i != null) {
+      this.apply(i);
+      this.setHover(i);
+    }
   };
+
+  /** Fill the empty cells of every finished line with X. */
+  private crossFinished() {
+    const n = this.size;
+    const same = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+    const mark = (i: number) => {
+      if (this.cells[i] === 0) {
+        this.cells[i] = 2;
+        this.paintCell(i);
+      }
+    };
+    for (let k = 0; k < n; k++) {
+      if (this.rows[k].length && same(cluesOf(this.line(k, null)), this.rows[k])) for (let c = 0; c < n; c++) mark(k * n + c);
+      if (this.cols[k].length && same(cluesOf(this.line(null, k)), this.cols[k])) for (let r = 0; r < n; r++) mark(r * n + k);
+    }
+  }
 
   private apply(i: number) {
     const s = this.stroke!;
@@ -283,6 +344,7 @@ class Nonogram implements GameInstance {
     if (!s) return;
     this.stroke = null;
     if (s.before.every((v, i) => v === this.cells[i])) return;
+    if (this.autoX && s.value === 1) this.crossFinished();
     this.history.push(s.before);
     if (this.history.length > 300) this.history.shift();
     if (!this.counted) {

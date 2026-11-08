@@ -5,11 +5,12 @@ import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
 import { dailyRng, dayNumber, todayKey } from "../../core/rng";
 import { markDailyDone } from "../../core/daily";
+import { getSettings } from "../../core/settings";
 
 /** Randomness source; swapped for a seeded one when building the daily puzzle. */
 let rand: () => number = Math.random;
 
-const CLUES: Record<string, number> = { easy: 40, medium: 32, hard: 26 };
+const CLUES: Record<string, number> = { easy: 40, medium: 32, hard: 26, expert: 23 };
 const row = (i: number) => Math.floor(i / 9);
 const col = (i: number) => i % 9;
 const box = (i: number) => Math.floor(row(i) / 3) * 3 + Math.floor(col(i) / 3);
@@ -115,8 +116,12 @@ class Sudoku implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Point out wrong digits as they're entered. */
+  private showMistakes: boolean;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    this.showMistakes = ctx.option("check") !== "off";
     this.daily = ctx.option("mode") === "daily";
     this.level = this.daily ? `daily-${todayKey()}` : ctx.option("level") in CLUES ? ctx.option("level") : "easy";
     this.el = document.createElement("div");
@@ -137,15 +142,17 @@ class Sudoku implements GameInstance {
     this.padEl.innerHTML =
       [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button class="sdk-key" data-n="${n}">${n}<small></small></button>`).join("") +
       `<button class="sdk-key sdk-tool" data-tool="notes" aria-pressed="false">Notes</button>` +
-      `<button class="sdk-key sdk-tool" data-tool="erase">Erase</button>`;
+      `<button class="sdk-key sdk-tool" data-tool="erase">Erase</button>` +
+      `<button class="sdk-key sdk-tool sdk-wide" data-tool="fill" title="Pencil in every possible digit (F)">Fill notes</button>`;
     this.gridEl.addEventListener("pointerdown", (e) => {
       const c = (e.target as HTMLElement).closest<HTMLElement>(".sdk-cell");
-      if (c) this.select(Number(c.dataset.i));
+      if (c && !this.paused) this.select(Number(c.dataset.i));
     });
     this.padEl.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>("button");
-      if (!b) return;
-      if (b.dataset.n) this.enter(Number(b.dataset.n));
+      if (!b || this.paused) return;
+      if (b.dataset.tool === "fill") this.fillNotes();
+      else if (b.dataset.n) this.enter(Number(b.dataset.n));
       else if (b.dataset.tool === "erase") this.enter(0);
       else if (b.dataset.tool === "notes") this.toggleNotes();
     });
@@ -202,6 +209,59 @@ class Sudoku implements GameInstance {
     this.status();
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
+  /** Fill one cell with its answer: the selected cell if it's empty or wrong, else the cell with fewest options. */
+  requestHint() {
+    if (this.over || this.paused || !getSettings().hints) return;
+    const { values, solution, given } = this.s;
+    let i = this.sel >= 0 && !given[this.sel] && values[this.sel] !== solution[this.sel] ? this.sel : -1;
+    if (i < 0) {
+      let best = 10;
+      values.forEach((v, j) => {
+        if (v === solution[j]) return;
+        const opts = 9 - new Set(PEERS[j].map((k) => values[k]).filter(Boolean)).size;
+        if (opts < best) {
+          best = opts;
+          i = j;
+        }
+      });
+    }
+    if (i < 0) return;
+    this.sel = i;
+    const wasNotes = this.notesMode;
+    this.notesMode = false;
+    this.enter(solution[i]);
+    this.notesMode = wasNotes;
+    this.ctx.toast(`Row ${row(i) + 1}, column ${col(i) + 1} is ${solution[i]}`);
+  }
+
+  /** Pencil in every digit that doesn't clash with its row, column or box. */
+  private fillNotes() {
+    if (this.over) return;
+    this.push();
+    const { values } = this.s;
+    this.s.notes = values.map((v, i) => {
+      if (v) return [];
+      const used = new Set(PEERS[i].map((j) => values[j]));
+      return [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((n) => !used.has(n));
+    });
+    if (!this.counted) {
+      this.counted = true;
+      recordStart(this.key);
+    }
+    this.timer.start();
+    sfx.flip();
+    this.paint();
+    this.persist();
+  }
+
   destroy() {
     window.removeEventListener("keydown", this.onKey);
     this.persist();
@@ -236,9 +296,11 @@ class Sudoku implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || this.paused) return;
     const k = e.key;
     if (/^[1-9]$/.test(k)) this.enter(Number(k));
+    else if (k === "f" || k === "F") this.fillNotes();
+    else if (k === "h" || k === "H") this.requestHint();
     else if (k === "Backspace" || k === "Delete" || k === "0") this.enter(0);
     else if (k === "n" || k === "N") this.toggleNotes();
     else if (k.startsWith("Arrow")) {
@@ -269,7 +331,8 @@ class Sudoku implements GameInstance {
         for (const j of PEERS[i]) notes[j] = notes[j].filter((x) => x !== n);
         if (values[i] !== this.s.solution[i]) {
           this.s.mistakes += 1;
-          sfx.error();
+          if (this.showMistakes) sfx.error();
+          else sfx.place();
         } else sfx.place();
       }
     }
@@ -306,7 +369,7 @@ class Sudoku implements GameInstance {
         this.ctx.end({
           won: true,
           title: this.daily ? `Daily #${dayNumber()} solved` : "Solved",
-          lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, m ? `${m} mistake${m > 1 ? "s" : ""}` : "No mistakes"],
+          lines: [`${formatTime(secs)}${newBestTime ? " — a new best" : ""}`, m ? `${m} mistake${m > 1 ? "s" : ""}` : "No mistakes", `Level: ${this.daily ? "daily" : this.level}`],
         }),
       900,
     );
@@ -330,7 +393,8 @@ class Sudoku implements GameInstance {
       if (i === this.sel) c.classList.add("sel");
       else if (peer) c.classList.add("peer");
       if (v && v === selVal) c.classList.add("same");
-      if (v && !given[i] && (v !== solution[i] || conflict)) c.classList.add("wrong");
+      if (v && !given[i] && (conflict || (this.showMistakes && v !== solution[i]))) c.classList.add("wrong");
+      if (!v && this.sel >= 0 && selVal && notes[i].includes(selVal)) c.classList.add("has-note");
       if (fresh && given[i]) {
         c.classList.add("intro");
         c.style.animationDelay = `${(row(i) + col(i)) * 14}ms`;
@@ -355,7 +419,7 @@ class Sudoku implements GameInstance {
 
   private status() {
     this.ctx.setStatus([
-      { label: "Mistakes", value: String(this.s?.mistakes ?? 0) },
+      ...(this.showMistakes ? [{ label: "Mistakes", value: String(this.s?.mistakes ?? 0) }] : []),
       { label: "Time", value: formatTime(this.timer.seconds) },
     ]);
   }

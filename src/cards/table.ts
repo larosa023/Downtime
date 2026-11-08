@@ -1,5 +1,5 @@
 import { Card, cardName, isRed, rankLabel, suitSvg } from "./deck";
-import { motionEnabled } from "../core/settings";
+import { animScale, motionEnabled } from "../core/settings";
 
 export type PileKind = "stock" | "waste" | "foundation" | "tableau" | "cell";
 
@@ -35,8 +35,8 @@ export interface TableRules {
   canPick(pile: Pile, index: number): boolean;
   canDrop(from: Pile, index: number, to: Pile): boolean;
   drop(from: Pile, index: number, to: Pile): void;
-  /** Click without dragging. index is -1 for an empty pile. */
-  tap(pile: Pile, index: number): void;
+  /** Click without dragging. index is -1 for an empty pile. double is true for the second click of a double-click. */
+  tap(pile: Pile, index: number, double: boolean): void;
   wasteFan?(): number;
   /** Highlight a card as picked (e.g. the first card of a Pyramid pair). */
   isSelected?(card: Card): boolean;
@@ -50,6 +50,16 @@ interface Pos {
 
 const CARD_RATIO = 1.4;
 const DRAG_THRESHOLD = 5;
+const DOUBLE_MS = 380;
+
+/** What was last written to a card element, so re-renders only touch what changed. */
+interface CardState {
+  t: string;
+  z: string;
+  down: boolean;
+  sel: boolean;
+  buried: boolean;
+}
 
 export class CardTable {
   readonly el: HTMLDivElement;
@@ -72,6 +82,12 @@ export class CardTable {
     pointerId: number;
   } | null = null;
   private highlighted: HTMLElement | null = null;
+  private cardState = new Map<number, CardState>();
+  private slotMarks = new Map<string, string>();
+  private moveFrame = 0;
+  private lastMove: { x: number; y: number } | null = null;
+  private lastTap: { id: string; at: number } | null = null;
+  private paused = false;
 
   constructor(parent: HTMLElement, private rules: TableRules) {
     this.el = document.createElement("div");
@@ -96,7 +112,30 @@ export class CardTable {
     window.removeEventListener("pointerup", this.onUp);
     window.removeEventListener("pointercancel", this.onUp);
     this.flyTimers.forEach((t) => clearTimeout(t));
+    cancelAnimationFrame(this.moveFrame);
     this.el.remove();
+  }
+
+  /** While paused the table ignores input. */
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    if (paused) {
+      this.cancelDrag();
+      this.render({ instant: true });
+    }
+  }
+
+  /** Scale for JS-driven animation timings (deal stagger, flight times). */
+  private k() {
+    return animScale() || 1;
+  }
+
+  private setZ(id: number, el: HTMLDivElement, z: number) {
+    const v = String(z);
+    const st = this.cardState.get(id);
+    if (st && st.z === v) return;
+    el.style.zIndex = v;
+    if (st) st.z = v;
   }
 
   /** Remove all card elements, e.g. before a fresh deal. */
@@ -105,6 +144,7 @@ export class CardTable {
     this.cardEls.clear();
     this.lastPile.clear();
     this.positions.clear();
+    this.cardState.clear();
   }
 
   // ---------- rendering ----------
@@ -142,8 +182,13 @@ export class CardTable {
         this.el.appendChild(sEl);
         this.slotEls.set(pile.id, sEl);
       }
-      sEl.style.transform = `translate3d(${slot.x}px, ${slot.y}px, 0)`;
-      sEl.innerHTML = slot.mark ? `<span class="slot-mark">${slot.mark}</span>` : "";
+      const st = `translate3d(${slot.x}px, ${slot.y}px, 0)`;
+      if (sEl.style.transform !== st) sEl.style.transform = st;
+      const mark = slot.mark ?? "";
+      if (this.slotMarks.get(pile.id) !== mark) {
+        sEl.innerHTML = mark ? `<span class="slot-mark">${mark}</span>` : "";
+        this.slotMarks.set(pile.id, mark);
+      }
       sEl.classList.toggle("slot-empty", pile.cards.length === 0);
       sEl.classList.toggle("slot-ghost", !!slot.ghost);
     }
@@ -151,16 +196,21 @@ export class CardTable {
       if (!liveSlots.has(id)) {
         el.remove();
         this.slotEls.delete(id);
+        this.slotMarks.delete(id);
       }
     }
 
     // Cards
     let dealOrder = 0;
     const dealFrom = opts.deal ? layout.slots[opts.deal.from] : null;
+    const k = this.k();
+    // Deal: park every card at the stock first, then one reflow, then send them out.
+    const flights: { id: number; el: HTMLDivElement; t: string; z: number; delay: number; up: boolean }[] = [];
     for (const pile of piles) {
       const slot = layout.slots[pile.id];
       if (!slot) continue;
       const offsets = this.offsets(pile, slot, ch);
+      const n = pile.cards.length;
       pile.cards.forEach((card, i) => {
         seen.add(card.id);
         this.where.set(card.id, { pile, index: i });
@@ -171,37 +221,66 @@ export class CardTable {
           this.cardEls.set(card.id, el);
           this.el.appendChild(el);
         }
+        let st = this.cardState.get(card.id);
+        if (!st) {
+          st = { t: "", z: "", down: !card.up, sel: false, buried: false };
+          el.classList.toggle("down", !card.up);
+          el.setAttribute("aria-label", card.up ? cardName(card) : "Face-down card");
+          this.cardState.set(card.id, st);
+        }
         const pos: Pos = { x: slot.x + offsets[i].x, y: slot.y + offsets[i].y, z: (slot.z ?? 0) + i + 1 };
         this.positions.set(card.id, pos);
-        el.classList.toggle("down", !card.up);
-        el.classList.toggle("selected", !!this.rules.isSelected?.(card));
-        el.setAttribute("aria-label", card.up ? cardName(card) : "Face-down card");
+        const sel = !!this.rules.isSelected?.(card);
+        if (st.sel !== sel) {
+          el.classList.toggle("selected", sel);
+          st.sel = sel;
+        }
+        const buried = slot.fan === "none" && i < n - 2;
+        if (st.buried !== buried) {
+          el.classList.toggle("buried", buried);
+          st.buried = buried;
+        }
 
         const prev = this.lastPile.get(card.id);
         const moved = prev !== undefined && prev !== pile.id;
         this.lastPile.set(card.id, pile.id);
-        el.classList.toggle("buried", slot.fan === "none" && i < pile.cards.length - 2);
+        const t = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
 
         if (dealFrom && animate) {
-          // Start every card at the stock, then fly out in order.
           el.style.transition = "none";
           el.style.transform = `translate3d(${dealFrom.x}px, ${dealFrom.y}px, 0)`;
           el.style.zIndex = String(2000 + dealOrder);
           el.classList.add("down");
-          void el.offsetWidth;
-          const delay = dealOrder * 16;
-          el.style.transition = "";
-          el.style.transitionDelay = `${delay}ms`;
-          el.classList.toggle("down", !card.up);
-          this.setFlying(card.id, el, 2000 + dealOrder, delay + 420);
+          flights.push({ id: card.id, el, t, z: 2000 + dealOrder, delay: Math.round(dealOrder * 16 * k), up: card.up });
+          st.t = t;
+          st.z = String(2000 + dealOrder);
+          st.down = !card.up;
           dealOrder++;
-        } else {
-          el.style.transitionDelay = "";
-          if ((moved || fresh) && animate) this.setFlying(card.id, el, 1000 + i, 380);
-          else if (!this.flyTimers.has(card.id)) el.style.zIndex = String(pos.z);
+          return;
         }
-        el.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
+        if (st.down === card.up) {
+          el.classList.toggle("down", !card.up);
+          el.setAttribute("aria-label", card.up ? cardName(card) : "Face-down card");
+          st.down = !card.up;
+        }
+        if (el.style.transitionDelay) el.style.transitionDelay = "";
+        if ((moved || fresh) && animate) this.setFlying(card.id, el, 1000 + i, Math.round(380 * k));
+        else if (!this.flyTimers.has(card.id)) this.setZ(card.id, el, pos.z);
+        if (st.t !== t) {
+          el.style.transform = t;
+          st.t = t;
+        }
       });
+    }
+    if (flights.length) {
+      void this.el.offsetWidth;
+      for (const f of flights) {
+        f.el.style.transition = "";
+        f.el.style.transitionDelay = `${f.delay}ms`;
+        f.el.classList.toggle("down", !f.up);
+        f.el.style.transform = f.t;
+        this.setFlying(f.id, f.el, f.z, f.delay + Math.round(420 * k));
+      }
     }
 
     for (const [id, el] of this.cardEls) {
@@ -209,12 +288,15 @@ export class CardTable {
         el.remove();
         this.cardEls.delete(id);
         this.lastPile.delete(id);
+        this.cardState.delete(id);
       }
     }
   }
 
   private setFlying(id: number, el: HTMLDivElement, z: number, ms: number) {
     el.style.zIndex = String(z);
+    const st = this.cardState.get(id);
+    if (st) st.z = String(z);
     const old = this.flyTimers.get(id);
     if (old) clearTimeout(old);
     this.flyTimers.set(
@@ -222,7 +304,7 @@ export class CardTable {
       window.setTimeout(() => {
         this.flyTimers.delete(id);
         const p = this.positions.get(id);
-        if (p && !el.classList.contains("dragging")) el.style.zIndex = String(p.z);
+        if (p && !el.classList.contains("dragging")) this.setZ(id, el, p.z);
       }, ms),
     );
   }
@@ -281,6 +363,7 @@ export class CardTable {
         <div class="card-face ${color} s-${card.suit}">
           <div class="idx tl"><span>${r}</span>${suitSvg(card.suit)}</div>
           ${center}
+          <div class="big"><span>${r}</span>${suitSvg(card.suit)}</div>
           <div class="idx br"><span>${r}</span>${suitSvg(card.suit)}</div>
         </div>
         <div class="card-back"></div>
@@ -327,7 +410,7 @@ export class CardTable {
   }
 
   private onDown = (e: PointerEvent) => {
-    if (e.button !== 0 || this.drag) return;
+    if (e.button !== 0 || this.drag || this.paused) return;
     const loc = this.locateTarget(e);
     if (!loc) return;
     e.preventDefault();
@@ -341,6 +424,11 @@ export class CardTable {
       target: null,
       pointerId: e.pointerId,
     };
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch {
+      /* not capturable (synthetic event) */
+    }
     window.addEventListener("pointermove", this.onMove);
     window.addEventListener("pointerup", this.onUp);
     window.addEventListener("pointercancel", this.onUp);
@@ -359,15 +447,29 @@ export class CardTable {
       d.cards.forEach((c, i) => {
         const el = this.cardEls.get(c.id)!;
         el.classList.add("dragging");
-        el.style.zIndex = String(5000 + i);
+        this.setZ(c.id, el, 5000 + i);
       });
     }
-    d.cards.forEach((c) => {
-      const el = this.cardEls.get(c.id)!;
-      const p = this.positions.get(c.id)!;
-      el.style.transform = `translate3d(${p.x + dx}px, ${p.y + dy}px, 0)`;
-    });
-    this.updateTarget(dx, dy);
+    // Coalesce pointer events into one style write per frame.
+    this.lastMove = { x: dx, y: dy };
+    if (!this.moveFrame) this.moveFrame = requestAnimationFrame(this.paintDrag);
+  };
+
+  private paintDrag = () => {
+    this.moveFrame = 0;
+    const d = this.drag;
+    const m = this.lastMove;
+    if (!d || !d.active || !m) return;
+    for (const c of d.cards) {
+      const el = this.cardEls.get(c.id);
+      const p = this.positions.get(c.id);
+      if (!el || !p) continue;
+      const t = `translate3d(${p.x + m.x}px, ${p.y + m.y}px, 0)`;
+      el.style.transform = t;
+      const st = this.cardState.get(c.id);
+      if (st) st.t = t;
+    }
+    this.updateTarget(m.x, m.y);
   };
 
   private updateTarget(dx: number, dy: number) {
@@ -428,6 +530,11 @@ export class CardTable {
   private onUp = (e: PointerEvent) => {
     const d = this.drag;
     if (!d || e.pointerId !== d.pointerId) return;
+    if (this.moveFrame) {
+      // Apply the last position (and drop target) before deciding.
+      cancelAnimationFrame(this.moveFrame);
+      this.paintDrag();
+    }
     window.removeEventListener("pointermove", this.onMove);
     window.removeEventListener("pointerup", this.onUp);
     window.removeEventListener("pointercancel", this.onUp);
@@ -435,7 +542,13 @@ export class CardTable {
     this.setHighlight(null);
     this.el.classList.remove("is-dragging");
     if (!d.active) {
-      if (e.type === "pointerup") this.rules.tap(d.pile, d.index);
+      if (e.type === "pointerup") {
+        const id = `${d.pile.id}:${d.index}`;
+        const now = performance.now();
+        const double = !!this.lastTap && this.lastTap.id === id && now - this.lastTap.at < DOUBLE_MS;
+        this.lastTap = double ? null : { id, at: now };
+        this.rules.tap(d.pile, d.index, double);
+      }
       return;
     }
     d.cards.forEach((c) => this.cardEls.get(c.id)?.classList.remove("dragging"));
@@ -445,7 +558,7 @@ export class CardTable {
       // Snap back.
       d.cards.forEach((c, i) => {
         const el = this.cardEls.get(c.id);
-        if (el) this.setFlying(c.id, el, 1000 + i, 320);
+        if (el) this.setFlying(c.id, el, 1000 + i, Math.round(320 * this.k()));
       });
       this.render();
     }
@@ -454,6 +567,8 @@ export class CardTable {
   private cancelDrag() {
     const d = this.drag;
     if (!d) return;
+    cancelAnimationFrame(this.moveFrame);
+    this.moveFrame = 0;
     d.cards.forEach((c) => this.cardEls.get(c.id)?.classList.remove("dragging"));
     this.drag = null;
     this.setHighlight(null);

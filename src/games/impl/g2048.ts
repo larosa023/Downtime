@@ -2,6 +2,7 @@ import { GameContext, GameInstance } from "../../core/types";
 import { getStats, recordScore, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
+import { animScale } from "../../core/settings";
 
 interface Tile {
   id: number;
@@ -15,8 +16,7 @@ interface Snapshot {
   score: number;
 }
 
-const N = 4;
-const SAVE = "save:2048";
+const SIZES = [3, 4, 5, 6];
 const KEY_DIRS: Record<string, [number, number]> = {
   ArrowUp: [-1, 0], KeyW: [-1, 0],
   ArrowDown: [1, 0], KeyS: [1, 0],
@@ -39,12 +39,23 @@ class Game2048 implements GameInstance {
   private busy = false;
   private touch: { x: number; y: number } | null = null;
   private resizeObs: ResizeObserver;
+  private paused = false;
+  /** Board size. 4×4 keeps the original stats and save keys. */
+  private N: number;
+  private key: string;
+  private SAVE: string;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
+    const n = Number(ctx.option("size"));
+    this.N = SIZES.includes(n) ? n : 4;
+    this.key = this.N === 4 ? "2048" : `2048:${this.N}`;
+    this.SAVE = this.N === 4 ? "save:2048" : `save:2048:${this.N}`;
+    const N = this.N;
     this.el = document.createElement("div");
     this.el.className = "g2048";
     this.board = document.createElement("div");
     this.board.className = "g2048-board";
+    this.board.style.setProperty("--n", String(N));
     for (let i = 0; i < N * N; i++) {
       const b = document.createElement("div");
       b.className = "g2048-bg";
@@ -60,7 +71,7 @@ class Game2048 implements GameInstance {
     this.board.addEventListener("pointerup", this.onSwipe);
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(this.el);
-    const saved = load<(Snapshot & { reached: boolean; counted: boolean }) | null>(SAVE, null);
+    const saved = load<(Snapshot & { reached: boolean; counted: boolean }) | null>(this.SAVE, null);
     if (saved && saved.tiles.length) {
       this.tiles = saved.tiles;
       this.score = saved.score;
@@ -73,7 +84,7 @@ class Game2048 implements GameInstance {
   }
 
   newGame() {
-    if (this.counted) recordScore("2048", this.score);
+    if (this.counted) recordScore(this.key, this.score);
     this.tiles = [];
     this.layer.innerHTML = "";
     this.tileEls.clear();
@@ -107,6 +118,14 @@ class Game2048 implements GameInstance {
     this.status();
   }
 
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+  }
+
   destroy() {
     window.removeEventListener("keydown", this.onKey);
     this.resizeObs.disconnect();
@@ -120,11 +139,12 @@ class Game2048 implements GameInstance {
   }
 
   private persist() {
-    if (this.over) return remove(SAVE);
-    save(SAVE, { tiles: this.tiles, score: this.score, reached: this.reached, counted: this.counted });
+    if (this.over) return remove(this.SAVE);
+    save(this.SAVE, { tiles: this.tiles, score: this.score, reached: this.reached, counted: this.counted });
   }
 
   private spawn() {
+    const N = this.N;
     const free: [number, number][] = [];
     for (let r = 0; r < N; r++)
       for (let c = 0; c < N; c++) if (!this.tiles.some((t) => t.r === r && t.c === c)) free.push([r, c]);
@@ -134,7 +154,7 @@ class Game2048 implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input")) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || this.paused) return;
     const d = KEY_DIRS[e.code];
     if (!d) return;
     e.preventDefault();
@@ -142,7 +162,7 @@ class Game2048 implements GameInstance {
   };
 
   private onSwipe = (e: PointerEvent) => {
-    if (!this.touch) return;
+    if (!this.touch || this.paused) return;
     const dx = e.clientX - this.touch.x;
     const dy = e.clientY - this.touch.y;
     this.touch = null;
@@ -152,6 +172,7 @@ class Game2048 implements GameInstance {
   };
 
   private move(dr: number, dc: number) {
+    const N = this.N;
     if (this.over || this.busy) return;
     const grid: (Tile | null)[][] = Array.from({ length: N }, () => Array(N).fill(null));
     for (const t of this.tiles) grid[t.r][t.c] = t;
@@ -208,7 +229,7 @@ class Game2048 implements GameInstance {
 
     if (!this.counted) {
       this.counted = true;
-      recordStart("2048");
+      recordStart(this.key);
     }
     this.history.push({ tiles: before, score: this.score });
     if (this.history.length > 50) this.history.shift();
@@ -234,7 +255,7 @@ class Game2048 implements GameInstance {
         }
         if (into.value === 2048 && !this.reached) {
           this.reached = true;
-          recordWin("2048");
+          recordWin(this.key);
           sfx.win();
           this.ctx.toast("2048! Keep going for a higher score.");
         }
@@ -245,11 +266,12 @@ class Game2048 implements GameInstance {
       this.status();
       if (!this.canMove()) this.gameOver();
       this.persist();
-    }, 110);
+    }, 110 * animScale());
     this.status();
   }
 
   private canMove() {
+    const N = this.N;
     if (this.tiles.length < N * N) return true;
     const at = (r: number, c: number) => this.tiles.find((t) => t.r === r && t.c === c)?.value;
     for (let r = 0; r < N; r++)
@@ -262,14 +284,14 @@ class Game2048 implements GameInstance {
 
   private gameOver() {
     this.over = true;
-    const { newBest } = recordScore("2048", this.score);
+    const { newBest } = recordScore(this.key, this.score);
     this.counted = false;
     sfx.lose();
     const top = Math.max(...this.tiles.map((t) => t.value));
     this.ctx.end({
       won: this.reached,
       title: "No moves left",
-      lines: [`Score ${this.score}${newBest ? " — a new best" : ""}`, `Highest tile ${top}`],
+      lines: [`Score ${this.score}${newBest ? " — a new best" : ""}`, `Highest tile ${top}`, `${this.N}×${this.N} board`],
     });
     this.status();
   }
@@ -277,7 +299,8 @@ class Game2048 implements GameInstance {
   private paintTile(el: HTMLDivElement, t: Tile) {
     el.textContent = String(t.value);
     el.dataset.v = String(Math.min(t.value, 4096));
-    el.classList.toggle("small", t.value >= 1024);
+    el.classList.toggle("small", t.value >= 1024 && t.value < 16384);
+    el.classList.toggle("tiny", t.value >= 16384 || (this.N >= 6 && t.value >= 1024));
   }
 
   private renderAll(spawnAnim: boolean) {
@@ -300,7 +323,7 @@ class Game2048 implements GameInstance {
   }
 
   private status() {
-    const best = Math.max(getStats("2048").bestScore ?? 0, this.score);
+    const best = Math.max(getStats(this.key).bestScore ?? 0, this.score);
     this.ctx.setStatus([
       { label: "Score", value: String(this.score) },
       { label: "Best", value: String(best) },

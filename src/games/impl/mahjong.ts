@@ -3,7 +3,7 @@ import { GameTimer } from "../../core/timer";
 import { formatTime, recordLoss, recordStart, recordWin } from "../../core/stats";
 import { load, remove, save } from "../../core/storage";
 import { sfx } from "../../core/sound";
-import { motionEnabled } from "../../core/settings";
+import { animScale, getSettings, motionEnabled } from "../../core/settings";
 import { dailyRng, dayNumber, todayKey } from "../../core/rng";
 import { markDailyDone } from "../../core/daily";
 
@@ -21,7 +21,7 @@ function rect(x0: number, y0: number, cols: number, rows: number, z: number): Sp
 }
 
 /** A 108-tile pyramid with wings: 60 + 32 + 12 + 2 on top, plus one tile on each side. */
-const LAYOUT: Spot[] = [
+const PYRAMID: Spot[] = [
   ...rect(0, 0, 10, 6, 0),
   ...rect(2, 2, 8, 4, 1),
   ...rect(4, 4, 6, 2, 2),
@@ -30,6 +30,42 @@ const LAYOUT: Spot[] = [
   { x: -2, y: 5, z: 0 },
   { x: 20, y: 5, z: 0 },
 ];
+/** 84 tiles: a walled keep three layers high, with a gate tile on each side. */
+const FORTRESS: Spot[] = [
+  ...rect(0, 0, 8, 6, 0),
+  ...rect(2, 2, 6, 4, 1),
+  ...rect(4, 4, 4, 2, 2),
+  { x: 6, y: 5, z: 3 },
+  { x: 8, y: 5, z: 3 },
+  { x: -2, y: 5, z: 0 },
+  { x: 16, y: 5, z: 0 },
+];
+
+/** 68 tiles: a long low base with two small peaks set half a tile off the grid. */
+const TWIN_PEAKS: Spot[] = [
+  ...rect(0, 0, 12, 4, 0),
+  ...rect(1, 1, 4, 2, 1),
+  ...rect(15, 1, 4, 2, 1),
+  ...rect(3, 2, 2, 1, 2),
+  ...rect(17, 2, 2, 1, 2),
+];
+
+/** 68 tiles: a cross with a tall center. */
+const CROSS: Spot[] = [
+  ...rect(6, 0, 3, 8, 0),
+  ...rect(0, 4, 3, 4, 0),
+  ...rect(12, 4, 3, 4, 0),
+  ...rect(6, 4, 3, 4, 1),
+  ...rect(7, 5, 2, 3, 2),
+  { x: 8, y: 7, z: 3 },
+  { x: 8, y: 9, z: 3 },
+];
+
+export const LAYOUTS: Record<string, Spot[]> = { pyramid: PYRAMID, fortress: FORTRESS, peaks: TWIN_PEAKS, cross: CROSS };
+
+/** The layout in play. Only one Mahjong board exists at a time. */
+let LAYOUT: Spot[] = PYRAMID;
+
 // 27 kinds (three suits, 1–9), four of each.
 const KINDS = 27;
 const SUITS = ["dots", "sticks", "stars"] as const;
@@ -115,17 +151,30 @@ class Mahjong implements GameInstance {
   private over = false;
   private counted = false;
   private resizeObs: ResizeObserver;
+  /** Moves layouts so their left edge sits where the CSS expects it. */
+  private shiftX = 0;
 
   private daily: boolean;
   private SAVE: string;
+  private layout: string;
+  private paused = false;
 
   constructor(root: HTMLElement, private ctx: GameContext) {
     this.daily = ctx.option("mode") === "daily";
-    this.SAVE = this.daily ? `save:mahjong:daily:${todayKey()}` : SAVE_PRACTICE;
+    // The daily board is always the pyramid, so everyone gets the same puzzle.
+    this.layout = !this.daily && ctx.option("layout") in LAYOUTS ? ctx.option("layout") : "pyramid";
+    LAYOUT = LAYOUTS[this.layout];
+    const lay = this.layout === "pyramid" ? "" : `:${this.layout}`;
+    this.SAVE = this.daily ? `save:mahjong:daily:${todayKey()}` : SAVE_PRACTICE + lay;
     this.el = document.createElement("div");
     this.el.className = "mahjong";
     this.board = document.createElement("div");
     this.board.className = "mj-board";
+    const xs = LAYOUT.map((p) => p.x);
+    const ys = LAYOUT.map((p) => p.y);
+    this.shiftX = -2 - Math.min(...xs);
+    this.board.style.setProperty("--bw", String((Math.max(...xs) + 2 - Math.min(...xs)) / 2));
+    this.board.style.setProperty("--bh", String((Math.max(...ys) + 2) / 2 + 0.5));
     this.el.appendChild(this.board);
     root.appendChild(this.el);
     LAYOUT.forEach((p, i) => {
@@ -133,7 +182,7 @@ class Mahjong implements GameInstance {
       b.className = "mj-tile";
       b.dataset.i = String(i);
       b.style.zIndex = String(p.z * 1000 + p.y * 20 + p.x + 50);
-      b.style.setProperty("--x", String(p.x));
+      b.style.setProperty("--x", String(p.x + this.shiftX));
       b.style.setProperty("--y", String(p.y));
       b.style.setProperty("--z", String(p.z));
       this.board.appendChild(b);
@@ -141,7 +190,7 @@ class Mahjong implements GameInstance {
     });
     this.board.addEventListener("click", (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>(".mj-tile");
-      if (t) this.pick(Number(t.dataset.i));
+      if (t && !this.paused) this.pick(Number(t.dataset.i));
     });
     window.addEventListener("keydown", this.onKey);
     this.timer = new GameTimer(() => this.status());
@@ -159,7 +208,17 @@ class Mahjong implements GameInstance {
   }
 
   private get key() {
-    return this.daily ? "mahjong:daily" : "mahjong";
+    if (this.daily) return "mahjong:daily";
+    return this.layout === "pyramid" ? "mahjong" : `mahjong:${this.layout}`;
+  }
+
+  inProgress() {
+    return this.counted && !this.over;
+  }
+
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    this.board.classList.toggle("paused", paused);
   }
 
   newGame() {
@@ -200,9 +259,10 @@ class Mahjong implements GameInstance {
 
   resize() {
     const r = this.el.getBoundingClientRect();
-    // Board spans x -2..22 (12 tiles) and y 0..12 (6 tiles), plus depth.
+    const bw = Number(this.board.style.getPropertyValue("--bw")) || 12;
+    const bh = Number(this.board.style.getPropertyValue("--bh")) || 6.5;
     const ratio = 1.32;
-    const tw = Math.floor(Math.min((r.width - 60) / 12.6, (r.height - 60) / (6 * ratio + 0.6)));
+    const tw = Math.floor(Math.min((r.width - 60) / (bw + 0.6), (r.height - 60) / ((bh - 0.5) * ratio + 0.6)));
     this.board.style.setProperty("--tw", `${Math.max(tw, 24)}px`);
   }
 
@@ -218,10 +278,13 @@ class Mahjong implements GameInstance {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement)?.closest?.("select, input") || e.ctrlKey || e.metaKey || this.paused) return;
     if (e.key === "h" || e.key === "H") {
       e.preventDefault();
       this.hint();
+    } else if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      this.shuffle();
     } else if (e.key === "Escape" && this.selected != null) {
       this.selected = null;
       this.paint();
@@ -242,6 +305,7 @@ class Mahjong implements GameInstance {
   }
 
   hint() {
+    if (!getSettings().hints || this.over) return;
     const m = this.matches();
     if (!m.length) return;
     const [a, b] = m[Math.floor(Math.random() * m.length)];
@@ -251,6 +315,26 @@ class Mahjong implements GameInstance {
       void t.offsetWidth;
       t.classList.add("hint");
     }
+  }
+
+  /** Shuffle the remaining tiles into a new solvable arrangement. Counts as a shuffle. */
+  shuffle() {
+    if (this.over) return;
+    const live = LAYOUT.map((_, i) => i).filter((i) => !this.s.gone[i]);
+    if (live.length < 2) return;
+    const map = assignKinds(
+      live,
+      live.map((i) => this.s.kinds[i]),
+    );
+    if (!map) return this.ctx.toast("These tiles can't be rearranged.");
+    this.history.push({ kinds: this.s.kinds.slice(), gone: this.s.gone.slice(), shuffles: this.s.shuffles });
+    live.forEach((i) => (this.s.kinds[i] = map.get(i)!));
+    this.s.shuffles += 1;
+    this.selected = null;
+    sfx.deal();
+    this.paint(true);
+    this.status();
+    this.persist();
   }
 
   private pick(i: number) {
@@ -291,7 +375,7 @@ class Mahjong implements GameInstance {
       const t = this.tiles[i];
       if (motionEnabled()) {
         t.classList.add("leaving");
-        setTimeout(() => t.classList.remove("leaving"), 320);
+        setTimeout(() => t.classList.remove("leaving"), 320 * animScale());
       }
     }
   }
@@ -373,7 +457,7 @@ class Mahjong implements GameInstance {
       if (animate) {
         t.classList.remove("intro");
         void t.offsetWidth;
-        t.style.animationDelay = `${p.z * 90 + (p.x + p.y) * 8}ms`;
+        t.style.animationDelay = `${(p.z * 90 + (p.x + p.y) * 8) * animScale()}ms`;
         t.classList.add("intro");
       }
     });

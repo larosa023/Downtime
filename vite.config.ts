@@ -8,7 +8,12 @@ export default defineConfig({
   server: { port: 1420, strictPort: true },
   envPrefix: ["VITE_", "TAURI_"],
   build: {
+    // WebView2 is evergreen Chromium, so ship modern code with no polyfills.
     target: "es2022",
+    modulePreload: { polyfill: false },
+    // Games load as separate chunks; keep their CSS with them.
+    cssCodeSplit: true,
+    reportCompressedSize: false,
     outDir: "dist",
     emptyOutDir: true,
   },
