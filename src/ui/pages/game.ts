@@ -161,11 +161,17 @@ export function showGame(stage: HTMLElement, game: GameModule): GameView {
   const ctx: GameContext = {
     setStatus(items: StatusItem[]) {
       lastItems = items;
-      const html = items.map((i) => `<div data-kind="${KIND[i.label.toLowerCase()] ?? ""}"><dt>${i.label}</dt><dd>${i.value}</dd></div>`).join("");
-      if (html !== lastStatus) {
-        statusEl.innerHTML = html;
-        lastStatus = html;
+      // Same labels as last time: only touch the values that changed, so a clock tick is one text update.
+      const shape = items.map((i) => i.label).join("|");
+      if (shape === lastStatus) {
+        const dds = statusEl.querySelectorAll("dd");
+        items.forEach((i, n) => {
+          if (dds[n] && dds[n].textContent !== i.value) dds[n].textContent = i.value;
+        });
+        return;
       }
+      lastStatus = shape;
+      statusEl.innerHTML = items.map((i) => `<div data-kind="${KIND[i.label.toLowerCase()] ?? ""}"><dt>${i.label}</dt><dd>${i.value}</dd></div>`).join("");
     },
     setUndo(enabled) {
       if (undoBtn) undoBtn.disabled = !enabled;

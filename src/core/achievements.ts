@@ -113,7 +113,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 
   // Daily
   { id: "daily-1", name: "Daily habit", desc: "Finish a daily puzzle.", test: () => Object.values(dailyLog()).some((d) => d.length > 0) },
-  { id: "daily-all", name: "Clean sweep", desc: "Finish every daily puzzle on the same day.", test: () => Object.values(dailyLog()).some((d) => d.length >= 4) },
+  { id: "daily-all", name: "Clean sweep", desc: "Finish every daily puzzle on the same day.", test: () => Object.values(dailyLog()).some((d) => d.length >= GAMES.filter((g) => g.daily).length) },
   { id: "daily-7", name: "A week straight", desc: "Finish a daily puzzle 7 days in a row.", test: () => dailyStreak() >= 7 },
   { id: "daily-30", name: "A month straight", desc: "Finish a daily puzzle 30 days in a row.", test: () => dailyStreak() >= 30 },
   { id: "daily-50", name: "Fifty days", desc: "Finish daily puzzles on 50 different days.", test: () => Object.values(dailyLog()).filter((d) => d.length > 0).length >= 50 },

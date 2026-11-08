@@ -379,6 +379,8 @@
   display: flex;
   gap: 22px;
   margin: 0 0 0 auto;
+  /* A clock tick re-lays out only the status bar, not the page. */
+  contain: layout style;
 }
 .status div {
   display: flex;
@@ -399,6 +401,7 @@
   font-variant-numeric: tabular-nums;
   min-width: 2.2ch;
   text-align: right;
+  contain: layout style;
 }
 
 .actions {
